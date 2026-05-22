@@ -30,6 +30,9 @@ const STRINGS = {
     "home.signIn.title": "Зберегти прогрес",
     "home.signIn.body": "Без входу — твоя статистика залишається лише на цьому пристрої. Увійди, щоб бачити свій прогрес скрізь.",
     "home.signIn.cta": "Увійти",
+    "home.disclaimer.before": "Дані питань взято з Crowdly. Якщо виникли проблеми — перегляньте ",
+    "home.disclaimer.link": "Q/A сторінку",
+    "home.disclaimer.after": ".",
 
     "quiz.title": "Тест",
     "quiz.subtitle": "Обери теми та кількість питань.",
@@ -61,8 +64,8 @@ const STRINGS = {
     "search.placeholder": "Шукати питання або варіант…",
     "search.shown": "Показано {n} з {total}",
     "search.showAnswers": "показати відповіді",
-    "search.hide": "Сховати",
-    "search.reveal": "Показати",
+    "search.hide": "Сховати відповіді",
+    "search.reveal": "Показати відповіді",
     "search.noMatches": "Нічого не знайдено",
     "search.tryAnother": "Спробуй інший пошук або фільтр.",
     "search.noAnswerBadge": "немає відповіді",
@@ -102,6 +105,7 @@ const STRINGS = {
 
     "profile.expand": "розгорнути",
     "profile.collapse": "згорнути",
+    "profile.wrong": "помилок",
     "profile.wrongOf": "{w} з {n} помилок",
     "profile.noWrongInQuiz": "Усі правильно в цьому тесті.",
 
@@ -141,6 +145,9 @@ const STRINGS = {
     "home.signIn.title": "Save your progress",
     "home.signIn.body": "Without an account your stats stay on this device only. Sign in to see your progress everywhere.",
     "home.signIn.cta": "Sign in",
+    "home.disclaimer.before": "All question data is from Crowdly. If you experience any issues, please check the ",
+    "home.disclaimer.link": "Q/A page",
+    "home.disclaimer.after": ".",
 
     "quiz.title": "Quiz",
     "quiz.subtitle": "Pick topics and how many questions.",
@@ -172,8 +179,8 @@ const STRINGS = {
     "search.placeholder": "Search question text or options…",
     "search.shown": "Showing {n} of {total}",
     "search.showAnswers": "show answers",
-    "search.hide": "Hide",
-    "search.reveal": "Reveal",
+    "search.hide": "Hide answers",
+    "search.reveal": "Show answers",
     "search.noMatches": "No matches",
     "search.tryAnother": "Try a different search or topic filter.",
     "search.noAnswerBadge": "no recorded answer",
@@ -213,6 +220,7 @@ const STRINGS = {
 
     "profile.expand": "expand",
     "profile.collapse": "collapse",
+    "profile.wrong": "wrong",
     "profile.wrongOf": "{w} of {n} wrong",
     "profile.noWrongInQuiz": "All correct in this quiz.",
 

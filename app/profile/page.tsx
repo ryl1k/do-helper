@@ -4,7 +4,6 @@ import Link from "next/link";
 import { ALL_CATEGORIES, categoryBadgeClass, categoryDotClass, effectiveCategories, shortLabel } from "@/lib/categories";
 import { clearHistory, loadProfile, setProfileName, summarize, type ProfileData, type QuizResult } from "@/lib/stats";
 import { useProfile } from "@/lib/auth";
-import { getSupabase } from "@/lib/supabase-client";
 import { useT } from "@/lib/i18n";
 import { letter, loadQuestions, type Question } from "@/lib/questions";
 
@@ -14,32 +13,16 @@ export default function ProfilePage() {
   const [local, setLocal] = useState<ProfileData | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
-  const [serverStats, setServerStats] = useState<{ total: number; correct: number } | null>(null);
   const [questionMap, setQuestionMap] = useState<Map<number, Question>>(new Map());
 
   useEffect(() => {
     const p = loadProfile();
     setLocal(p);
     setDraft(p.name);
-    // Load full question bank so we can render wrong-answer review in history.
     loadQuestions()
       .then((qs) => setQuestionMap(new Map(qs.map((q) => [q.number, q]))))
       .catch(() => {});
   }, []);
-
-  // Server-side aggregate (only when logged in).
-  useEffect(() => {
-    if (!session?.user) { setServerStats(null); return; }
-    const supabase = getSupabase();
-    supabase
-      .from("user_leaderboard")
-      .select("total, correct")
-      .eq("id", session.user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        setServerStats(data ? { total: Number(data.total), correct: Number(data.correct) } : { total: 0, correct: 0 });
-      });
-  }, [session]);
 
   const stats = useMemo(() => (local ? summarize(local.quizzes) : null), [local]);
 
@@ -49,8 +32,8 @@ export default function ProfilePage() {
     setLocal((d) => (d ? { ...d, name } : d));
 
     if (session?.user) {
-      const supabase = getSupabase();
-      await supabase.from("profiles").update({ display_name: name }).eq("id", session.user.id);
+      const { getSupabase } = await import("@/lib/supabase-client");
+      await getSupabase().from("profiles").update({ display_name: name }).eq("id", session.user.id);
     }
 
     setEditing(false);
@@ -78,12 +61,14 @@ export default function ProfilePage() {
     );
   }
 
-  const empty = local.quizzes.length === 0 && (!serverStats || serverStats.total === 0);
+  const empty = local.quizzes.length === 0;
 
-  // Headline: prefer server stats if logged in, else local.
+  // Local stats are authoritative for the profile headline — they accumulate from
+  // every quiz the user has taken in this browser, regardless of login state.
+  // Server attempts (separate table) feed the leaderboard.
   const headlineQuizzes = local.quizzes.length;
-  const headlineQuestions = isLoggedIn && serverStats ? serverStats.total : (stats?.totalQ ?? 0);
-  const headlineCorrect = isLoggedIn && serverStats ? serverStats.correct : (stats?.totalC ?? 0);
+  const headlineQuestions = stats?.totalQ ?? 0;
+  const headlineCorrect = stats?.totalC ?? 0;
   const headlineAcc = headlineQuestions > 0 ? Math.round((headlineCorrect / headlineQuestions) * 100) : null;
 
   return (
@@ -242,10 +227,15 @@ function QuizHistoryRow({ q, questionMap }: { q: QuizResult; questionMap: Map<nu
             {q.categories.length === ALL_CATEGORIES.length ? t("profile.allTopics") : q.categories.map((c) => shortLabel(c)).join(", ")}
           </div>
         </div>
-        <span className={"text-sm font-semibold tabular-nums " + (pct >= 80 ? "text-emerald-600 dark:text-emerald-400" : pct >= 50 ? "text-blue-600 dark:text-sky-400" : "text-amber-600 dark:text-amber-400")}>
+        {wrong.length > 0 && (
+          <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/40 tabular-nums shrink-0">
+            {wrong.length} {t("profile.wrong")}
+          </span>
+        )}
+        <span className={"text-sm font-semibold tabular-nums shrink-0 " + (pct >= 80 ? "text-emerald-600 dark:text-emerald-400" : pct >= 50 ? "text-blue-600 dark:text-sky-400" : "text-amber-600 dark:text-amber-400")}>
           {pct}%
         </span>
-        <span className="text-slate-400 dark:text-slate-500" aria-hidden>
+        <span className="text-slate-400 dark:text-slate-500 shrink-0" aria-hidden>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={"transition-transform " + (open ? "rotate-180" : "")}><polyline points="6 9 12 15 18 9" /></svg>
         </span>
       </button>
