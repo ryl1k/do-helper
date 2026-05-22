@@ -78,21 +78,44 @@ export default function QuizPage() {
     });
   }
 
+  function goTo(newIdx: number) {
+    if (newIdx < 0 || newIdx >= pool.length) return;
+    setIdx(newIdx);
+    const prev = attempts[newIdx];
+    if (prev) {
+      setChosen(new Set(prev.chosen));
+      setRevealed(true);
+    } else {
+      setChosen(new Set());
+      setRevealed(false);
+    }
+  }
+
+  function previous() {
+    goTo(idx - 1);
+  }
+
   function submit() {
     if (revealed || chosen.size === 0) return;
     const q = pool[idx];
     const truth = new Set(q.correct_indices);
     const isCorrect = chosen.size === truth.size && [...chosen].every((c) => truth.has(c));
-    setAttempts((a) => [...a, { question: q, chosen: [...chosen].sort((a, b) => a - b), correct: isCorrect }]);
+    setAttempts((prev) => {
+      const next = [...prev];
+      next[idx] = { question: q, chosen: [...chosen].sort((a, b) => a - b), correct: isCorrect };
+      return next;
+    });
     setRevealed(true);
   }
 
   function next() {
     if (idx + 1 >= pool.length) {
-      const finalAttempts = [...attempts];
+      // Last question; compute final and transition to done.
+      // attempts[] is dense at this point — you can only reach the last one by
+      // submitting every prior question.
+      const finalAttempts = attempts.filter(Boolean) as Attempt[];
       const finalScore = finalAttempts.filter((a) => a.correct).length;
 
-      // Local history (works without login)
       recordQuiz({
         date: new Date().toISOString(),
         categories: [...picked],
@@ -106,15 +129,12 @@ export default function QuizPage() {
         })),
       });
 
-      // Server-side attempts (fire-and-forget; works for both anon + logged-in)
       void writeAttemptsToServer(finalAttempts, session?.user?.id ?? null);
 
       setPhase("done");
       return;
     }
-    setIdx((i) => i + 1);
-    setChosen(new Set());
-    setRevealed(false);
+    goTo(idx + 1);
   }
 
   const cur = pool[idx];
@@ -306,25 +326,37 @@ export default function QuizPage() {
           })}
         </ol>
 
-        {!revealed ? (
-          <button
-            type="button"
-            onClick={submit}
-            disabled={chosen.size === 0}
-            className="w-full px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-sky-500 dark:hover:bg-sky-400 disabled:opacity-40 disabled:cursor-not-allowed text-white dark:text-slate-950 font-semibold transition-colors"
-          >
-            {t("quiz.submit")}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={next}
-            autoFocus
-            className="w-full px-6 py-3.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-semibold hover:bg-slate-800 dark:hover:bg-white transition-colors"
-          >
-            {isLast ? t("quiz.finish") : t("quiz.next")}
-          </button>
-        )}
+        <div className="flex gap-2 sm:gap-3">
+          {idx > 0 && (
+            <button
+              type="button"
+              onClick={previous}
+              className="px-4 sm:px-5 py-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 font-medium transition-colors"
+              aria-label={t("quiz.previous")}
+            >
+              {t("quiz.previous")}
+            </button>
+          )}
+          {!revealed ? (
+            <button
+              type="button"
+              onClick={submit}
+              disabled={chosen.size === 0}
+              className="flex-1 px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-sky-500 dark:hover:bg-sky-400 disabled:opacity-40 disabled:cursor-not-allowed text-white dark:text-slate-950 font-semibold transition-colors"
+            >
+              {t("quiz.submit")}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={next}
+              autoFocus
+              className="flex-1 px-6 py-3.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-semibold hover:bg-slate-800 dark:hover:bg-white transition-colors"
+            >
+              {isLast ? t("quiz.finish") : t("quiz.next")}
+            </button>
+          )}
+        </div>
       </main>
     );
   }
