@@ -6,6 +6,7 @@ import { clearHistory, loadProfile, setProfileName, summarize, type ProfileData,
 import { useProfile } from "@/lib/auth";
 import { useT } from "@/lib/i18n";
 import { letter, loadQuestions, type Question } from "@/lib/questions";
+import { AnswerSummary } from "@/components/AnswerSummary";
 
 export default function ProfilePage() {
   const { t } = useT();
@@ -240,61 +241,100 @@ function QuizHistoryRow({ q, questionMap }: { q: QuizResult; questionMap: Map<nu
         </span>
       </button>
 
-      {open && (
-        <div className="px-4 pb-4 space-y-2">
-          <div className="text-xs text-slate-500 dark:text-slate-400">
-            {t("profile.wrongOf", { w: wrong.length, n: q.total })}
+      {open && <QuizHistoryDetails q={q} wrongCount={wrong.length} questionMap={questionMap} />}
+    </li>
+  );
+}
+
+function QuizHistoryDetails({ q, wrongCount, questionMap }: { q: QuizResult; wrongCount: number; questionMap: Map<number, Question> }) {
+  const { t } = useT();
+  const [wrongOnly, setWrongOnly] = useState(false);
+  const list = wrongOnly ? q.outcomes.filter((o) => !o.correct) : q.outcomes;
+
+  return (
+    <div className="px-4 pb-4 space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-xs text-slate-500 dark:text-slate-400">
+          {t("profile.wrongOf", { w: wrongCount, n: q.total })}
+        </div>
+        {wrongCount > 0 && wrongCount < q.total && (
+          <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => setWrongOnly(false)}
+              className={"px-2.5 py-1 transition-colors " + (!wrongOnly ? "bg-blue-600 text-white dark:bg-sky-500 dark:text-slate-950" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800")}
+              aria-pressed={!wrongOnly}
+            >
+              {t("profile.showAll")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setWrongOnly(true)}
+              className={"px-2.5 py-1 transition-colors " + (wrongOnly ? "bg-blue-600 text-white dark:bg-sky-500 dark:text-slate-950" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800")}
+              aria-pressed={wrongOnly}
+            >
+              {t("profile.wrongOnly")}
+            </button>
           </div>
-          {wrong.length === 0 ? (
-            <div className="text-sm text-emerald-600 dark:text-emerald-400">{t("profile.noWrongInQuiz")}</div>
-          ) : (
-            <ol className="space-y-2">
-              {wrong.map((o, j) => {
-                const question = questionMap.get(o.number);
-                if (!question) {
+        )}
+      </div>
+
+      {wrongCount === 0 && (
+        <div className="text-sm text-emerald-600 dark:text-emerald-400">{t("profile.noWrongInQuiz")}</div>
+      )}
+
+      <ol className="space-y-2">
+        {list.map((o, j) => {
+          const question = questionMap.get(o.number);
+          if (!question) {
+            return (
+              <li key={j} className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 text-xs text-slate-500">
+                #{o.number} — question not found
+              </li>
+            );
+          }
+          return (
+            <li key={j} className={"rounded-lg border p-3 space-y-2 " + (o.correct ? "border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-red-200 dark:border-red-500/30 bg-red-50/40 dark:bg-red-950/20")}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {effectiveCategories(question.categories).map((c) => (
+                    <span key={c} className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-medium px-2 py-0.5 rounded border ${categoryBadgeClass(c)}`}>
+                      <span className={`size-1.5 rounded-full ${categoryDotClass(c)}`} />
+                      {shortLabel(c)}
+                    </span>
+                  ))}
+                </div>
+                <span className={"text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full " + (o.correct ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300")}>
+                  {o.correct ? t("profile.statusCorrect") : t("profile.statusWrong")}
+                </span>
+              </div>
+              <div className="text-sm">
+                <span className="text-xs text-slate-500 dark:text-slate-500 mr-2 tabular-nums">#{question.number}</span>
+                {question.text}
+              </div>
+              <ol className="space-y-1 text-sm">
+                {question.options.map((opt, k) => {
+                  const isCorrect = question.correct_indices.includes(k);
+                  const wasChosen = o.chosen?.includes(k);
+                  let cls = "border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40";
+                  if (isCorrect) cls = "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-500/60";
+                  else if (wasChosen) cls = "border-red-500 bg-red-50 dark:bg-red-950/40 dark:border-red-500/60";
                   return (
-                    <li key={j} className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 text-xs text-slate-500">
-                      #{o.number} — question not found
+                    <li key={k} className={"flex items-start gap-2.5 rounded-lg border px-3 py-1.5 " + cls}>
+                      <span className="opacity-50 w-4 shrink-0 text-xs pt-0.5">{letter(k)}.</span>
+                      <span className="flex-1">{opt}</span>
+                      {isCorrect && <span className="text-xs text-emerald-600 dark:text-emerald-400 shrink-0">✓</span>}
+                      {!isCorrect && wasChosen && <span className="text-xs text-red-600 dark:text-red-400 shrink-0">✕</span>}
                     </li>
                   );
-                }
-                return (
-                  <li key={j} className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 space-y-2 bg-slate-50/40 dark:bg-slate-800/30">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {effectiveCategories(question.categories).map((c) => (
-                        <span key={c} className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-medium px-2 py-0.5 rounded border ${categoryBadgeClass(c)}`}>
-                          <span className={`size-1.5 rounded-full ${categoryDotClass(c)}`} />
-                          {shortLabel(c)}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="text-sm">
-                      <span className="text-xs text-slate-500 dark:text-slate-500 mr-2 tabular-nums">#{question.number}</span>
-                      {question.text}
-                    </div>
-                    <ol className="space-y-1 text-sm">
-                      {question.options.map((opt, k) => {
-                        const isCorrect = question.correct_indices.includes(k);
-                        const wasChosen = o.chosen?.includes(k);
-                        let cls = "border-slate-200 dark:border-slate-800";
-                        if (isCorrect) cls = "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-500/60";
-                        else if (wasChosen) cls = "border-red-500 bg-red-50 dark:bg-red-950/40 dark:border-red-500/60";
-                        return (
-                          <li key={k} className={"flex items-start gap-2.5 rounded-lg border px-3 py-1.5 " + cls}>
-                            <span className="opacity-50 w-4 shrink-0 text-xs pt-0.5">{letter(k)}.</span>
-                            <span className="flex-1">{opt}</span>
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-        </div>
-      )}
-    </li>
+                })}
+              </ol>
+              <AnswerSummary chosen={o.chosen} correctIndices={question.correct_indices} />
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 

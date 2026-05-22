@@ -7,6 +7,7 @@ import { recordQuiz } from "@/lib/stats";
 import { useT } from "@/lib/i18n";
 import { getOrCreateAnonId, useSession } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase-client";
+import { AnswerSummary } from "@/components/AnswerSummary";
 
 type Phase = "setup" | "playing" | "done";
 
@@ -447,6 +448,7 @@ function DoneScreen({ attempts, score, onNew, onSame }: { attempts: Attempt[]; s
                     );
                   })}
                 </ol>
+                <AnswerSummary chosen={a.chosen} correctIndices={a.question.correct_indices} />
               </li>
             ))}
           </ol>
