@@ -65,12 +65,15 @@ export const CATEGORY_HINTS: Record<Category, string> = {
 
 // Distinct hue per category, paired light/dark so cards/badges read the same
 // in both themes. Used on subtle badges, pill backgrounds when active, and dots.
+// Note: every Tailwind class used here is also covered by the content scan because
+// tailwind.config.ts includes `./lib/**/*.{ts,tsx}`. Don't construct color classes
+// dynamically — keep them as full literal strings so the JIT can see them.
 const STYLES: Record<string, { bg: string; text: string; border: string; dot: string }> = {
   "Загальні питання ДО": {
-    bg: "bg-slate-100 dark:bg-slate-800/60",
-    text: "text-slate-700 dark:text-slate-200",
+    bg: "bg-slate-200 dark:bg-slate-800",
+    text: "text-slate-800 dark:text-slate-200",
     border: "border-slate-300 dark:border-slate-700",
-    dot: "bg-slate-500",
+    dot: "bg-slate-500 dark:bg-slate-400",
   },
   "Лінійне програмування і симплекс-метод": {
     bg: "bg-blue-100 dark:bg-blue-950/50",
@@ -121,10 +124,10 @@ const STYLES: Record<string, { bg: string; text: string; border: string; dot: st
     dot: "bg-rose-500",
   },
   "Інше": {
-    bg: "bg-slate-100 dark:bg-slate-800/60",
+    bg: "bg-slate-200 dark:bg-slate-800",
     text: "text-slate-700 dark:text-slate-300",
     border: "border-slate-300 dark:border-slate-700",
-    dot: "bg-slate-400",
+    dot: "bg-slate-400 dark:bg-slate-500",
   },
 };
 

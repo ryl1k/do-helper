@@ -176,7 +176,8 @@ function Card({ q, reveal }: { q: Question; reveal: boolean }) {
 
         <div className="flex flex-wrap items-center gap-2">
           {cats.map((c) => (
-            <span key={c} className={`text-[10px] uppercase tracking-wider font-medium px-2 py-0.5 rounded border ${categoryBadgeClass(c)}`}>
+            <span key={c} className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-medium px-2 py-0.5 rounded border ${categoryBadgeClass(c)}`}>
+              <span className={`size-1.5 rounded-full ${categoryDotClass(c)}`} />
               {shortLabel(c)}
             </span>
           ))}

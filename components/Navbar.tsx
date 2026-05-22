@@ -24,6 +24,7 @@ export function Navbar() {
 
         <NavLink href="/quiz" icon={<PlayIcon />}>{t("nav.quiz")}</NavLink>
         <NavLink href="/search" icon={<SearchIcon />}>{t("nav.search")}</NavLink>
+        <NavLink href="/faq" icon={<HelpIcon />}>{t("nav.faq")}</NavLink>
 
         <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1 sm:mx-2" />
 
@@ -77,6 +78,16 @@ function SearchIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="11" cy="11" r="7" />
       <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+
+function HelpIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
     </svg>
   );
 }

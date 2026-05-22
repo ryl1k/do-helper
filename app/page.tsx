@@ -4,9 +4,11 @@ import Link from "next/link";
 import { ALL_CATEGORIES, categoryDotClass, effectiveCategories, shortLabel } from "@/lib/categories";
 import { loadQuestions, type Question } from "@/lib/questions";
 import { useT } from "@/lib/i18n";
+import { useSession } from "@/lib/auth";
 
 export default function HomePage() {
   const { t } = useT();
+  const { session, loading: sessionLoading } = useSession();
   const [qs, setQs] = useState<Question[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -67,6 +69,24 @@ export default function HomePage() {
           </div>
         </Link>
       </section>
+
+      {!sessionLoading && !session && (
+        <section className="rounded-2xl border border-blue-200 dark:border-sky-500/30 bg-blue-50 dark:bg-sky-500/10 p-5 sm:p-6 flex items-start gap-4">
+          <span className="inline-flex items-center justify-center size-10 rounded-xl bg-blue-600 dark:bg-sky-500 text-white dark:text-slate-950 shrink-0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a8 8 0 0 1 16 0v1" /></svg>
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-slate-900 dark:text-slate-100">{t("home.signIn.title")}</div>
+            <p className="text-sm text-slate-700 dark:text-slate-300 mt-1">{t("home.signIn.body")}</p>
+          </div>
+          <Link
+            href="/login"
+            className="shrink-0 inline-flex items-center px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 dark:bg-sky-500 dark:hover:bg-sky-400 text-white dark:text-slate-950 text-sm font-semibold transition-colors"
+          >
+            {t("home.signIn.cta")}
+          </Link>
+        </section>
+      )}
 
       <section className="space-y-3">
         <div className="flex items-baseline justify-between">

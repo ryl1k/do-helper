@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ALL_CATEGORIES, categoryDotClass, effectiveCategories, shortLabel } from "@/lib/categories";
-import { clearHistory, loadProfile, setProfileName, summarize, type ProfileData } from "@/lib/stats";
+import { ALL_CATEGORIES, categoryBadgeClass, categoryDotClass, effectiveCategories, shortLabel } from "@/lib/categories";
+import { clearHistory, loadProfile, setProfileName, summarize, type ProfileData, type QuizResult } from "@/lib/stats";
 import { useProfile } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase-client";
 import { useT } from "@/lib/i18n";
+import { letter, loadQuestions, type Question } from "@/lib/questions";
 
 export default function ProfilePage() {
   const { t } = useT();
@@ -14,11 +15,16 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [serverStats, setServerStats] = useState<{ total: number; correct: number } | null>(null);
+  const [questionMap, setQuestionMap] = useState<Map<number, Question>>(new Map());
 
   useEffect(() => {
     const p = loadProfile();
     setLocal(p);
     setDraft(p.name);
+    // Load full question bank so we can render wrong-answer review in history.
+    loadQuestions()
+      .then((qs) => setQuestionMap(new Map(qs.map((q) => [q.number, q]))))
+      .catch(() => {});
   }, []);
 
   // Server-side aggregate (only when logged in).
@@ -105,10 +111,8 @@ export default function ProfilePage() {
                 {displayName || t("profile.anonymous")}
               </h1>
               <div className="flex gap-3 items-center mt-0.5">
-                {isLoggedIn ? (
+                {isLoggedIn && (
                   <div className="text-xs text-slate-500 dark:text-slate-400">{session!.user.email}</div>
-                ) : (
-                  <div className="text-xs text-amber-700 dark:text-amber-400">{t("profile.guest")}</div>
                 )}
                 <button
                   type="button"
@@ -117,16 +121,29 @@ export default function ProfilePage() {
                 >
                   {displayName ? t("profile.editName") : t("profile.setName")}
                 </button>
-                {!isLoggedIn && (
-                  <Link href="/login" className="text-xs text-blue-600 dark:text-sky-400 hover:underline">
-                    {t("profile.signIn")}
-                  </Link>
-                )}
               </div>
             </>
           )}
         </div>
       </header>
+
+      {!isLoggedIn && (
+        <div className="rounded-2xl border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 p-4 sm:p-5 flex items-start gap-3">
+          <span className="inline-flex items-center justify-center size-9 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 9v4M12 17h.01" /><circle cx="12" cy="12" r="10" /></svg>
+          </span>
+          <div className="flex-1 min-w-0 space-y-1">
+            <div className="text-sm font-medium text-amber-900 dark:text-amber-200">{t("profile.guest")}</div>
+            <div className="text-sm text-amber-800 dark:text-amber-300/80">{t("profile.guestExplain")}</div>
+          </div>
+          <Link
+            href="/login"
+            className="shrink-0 inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 dark:bg-sky-500 dark:hover:bg-sky-400 text-white dark:text-slate-950 text-sm font-semibold transition-colors"
+          >
+            {t("profile.signIn")}
+          </Link>
+        </div>
+      )}
 
       <section className="grid grid-cols-3 gap-2 sm:gap-3">
         <Stat label={t("profile.stats.quizzes")} value={headlineQuizzes} />
@@ -190,30 +207,104 @@ export default function ProfilePage() {
               </button>
             </div>
             <ul className="divide-y divide-slate-200 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 overflow-hidden">
-              {local.quizzes.slice(0, 10).map((q, i) => {
-                const pct = q.total ? Math.round((q.correct / q.total) * 100) : 0;
-                return (
-                  <li key={i} className="px-4 py-3 flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm">
-                        <b className="tabular-nums">{q.correct}/{q.total}</b>
-                        <span className="text-slate-500 dark:text-slate-400 ml-2 text-xs">{new Date(q.date).toLocaleString()}</span>
-                      </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                        {q.categories.length === ALL_CATEGORIES.length ? t("profile.allTopics") : q.categories.map((c) => shortLabel(c)).join(", ")}
-                      </div>
-                    </div>
-                    <span className={"text-sm font-semibold tabular-nums " + (pct >= 80 ? "text-emerald-600 dark:text-emerald-400" : pct >= 50 ? "text-blue-600 dark:text-sky-400" : "text-amber-600 dark:text-amber-400")}>
-                      {pct}%
-                    </span>
-                  </li>
-                );
-              })}
+              {local.quizzes.slice(0, 10).map((q, i) => (
+                <QuizHistoryRow key={i} q={q} questionMap={questionMap} />
+              ))}
             </ul>
           </section>
         </>
       )}
     </main>
+  );
+}
+
+function QuizHistoryRow({ q, questionMap }: { q: QuizResult; questionMap: Map<number, Question> }) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const pct = q.total ? Math.round((q.correct / q.total) * 100) : 0;
+  const wrong = q.outcomes.filter((o) => !o.correct);
+  const canExpand = q.outcomes.length > 0;
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => canExpand && setOpen((v) => !v)}
+        className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+        aria-expanded={open}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="text-sm">
+            <b className="tabular-nums">{q.correct}/{q.total}</b>
+            <span className="text-slate-500 dark:text-slate-400 ml-2 text-xs">{new Date(q.date).toLocaleString()}</span>
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+            {q.categories.length === ALL_CATEGORIES.length ? t("profile.allTopics") : q.categories.map((c) => shortLabel(c)).join(", ")}
+          </div>
+        </div>
+        <span className={"text-sm font-semibold tabular-nums " + (pct >= 80 ? "text-emerald-600 dark:text-emerald-400" : pct >= 50 ? "text-blue-600 dark:text-sky-400" : "text-amber-600 dark:text-amber-400")}>
+          {pct}%
+        </span>
+        <span className="text-slate-400 dark:text-slate-500" aria-hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={"transition-transform " + (open ? "rotate-180" : "")}><polyline points="6 9 12 15 18 9" /></svg>
+        </span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-2">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            {t("profile.wrongOf", { w: wrong.length, n: q.total })}
+          </div>
+          {wrong.length === 0 ? (
+            <div className="text-sm text-emerald-600 dark:text-emerald-400">{t("profile.noWrongInQuiz")}</div>
+          ) : (
+            <ol className="space-y-2">
+              {wrong.map((o, j) => {
+                const question = questionMap.get(o.number);
+                if (!question) {
+                  return (
+                    <li key={j} className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 text-xs text-slate-500">
+                      #{o.number} — question not found
+                    </li>
+                  );
+                }
+                return (
+                  <li key={j} className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 space-y-2 bg-slate-50/40 dark:bg-slate-800/30">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {effectiveCategories(question.categories).map((c) => (
+                        <span key={c} className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-medium px-2 py-0.5 rounded border ${categoryBadgeClass(c)}`}>
+                          <span className={`size-1.5 rounded-full ${categoryDotClass(c)}`} />
+                          {shortLabel(c)}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="text-sm">
+                      <span className="text-xs text-slate-500 dark:text-slate-500 mr-2 tabular-nums">#{question.number}</span>
+                      {question.text}
+                    </div>
+                    <ol className="space-y-1 text-sm">
+                      {question.options.map((opt, k) => {
+                        const isCorrect = question.correct_indices.includes(k);
+                        const wasChosen = o.chosen?.includes(k);
+                        let cls = "border-slate-200 dark:border-slate-800";
+                        if (isCorrect) cls = "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-500/60";
+                        else if (wasChosen) cls = "border-red-500 bg-red-50 dark:bg-red-950/40 dark:border-red-500/60";
+                        return (
+                          <li key={k} className={"flex items-start gap-2.5 rounded-lg border px-3 py-1.5 " + cls}>
+                            <span className="opacity-50 w-4 shrink-0 text-xs pt-0.5">{letter(k)}.</span>
+                            <span className="flex-1">{opt}</span>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
+      )}
+    </li>
   );
 }
 

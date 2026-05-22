@@ -89,3 +89,12 @@ export async function signInWithMagicLink(email: string, redirectTo: string) {
   });
   if (error) throw error;
 }
+
+export async function signInWithGoogle(redirectTo: string) {
+  const supabase = getSupabase();
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo },
+  });
+  if (error) throw error;
+}

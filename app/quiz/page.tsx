@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ALL_CATEGORIES, categoryDotClass, effectiveCategories, shortLabel } from "@/lib/categories";
+import { ALL_CATEGORIES, categoryBadgeClass, categoryDotClass, effectiveCategories, shortLabel } from "@/lib/categories";
 import { loadQuestions, letter, type Question } from "@/lib/questions";
 import { recordQuiz } from "@/lib/stats";
 import { useT } from "@/lib/i18n";
@@ -16,8 +16,7 @@ interface Attempt {
   correct: boolean;
 }
 
-const PRESET_COUNTS = [10, 25, 50, "all"] as const;
-type Preset = (typeof PRESET_COUNTS)[number];
+const SUGGESTIONS = [10, 25, 50] as const;
 
 export default function QuizPage() {
   const { t } = useT();
@@ -31,8 +30,7 @@ export default function QuizPage() {
 
   const [phase, setPhase] = useState<Phase>("setup");
   const [picked, setPicked] = useState<Set<string>>(new Set(ALL_CATEGORIES));
-  const [preset, setPreset] = useState<Preset | "custom">(25);
-  const [customCount, setCustomCount] = useState<number>(15);
+  const [count, setCount] = useState<number>(25);
   const [pool, setPool] = useState<Question[]>([]);
   const [idx, setIdx] = useState(0);
   const [chosen, setChosen] = useState<Set<number>>(new Set());
@@ -56,11 +54,8 @@ export default function QuizPage() {
     });
   }, [all, picked]);
 
-  const requestedCount = preset === "custom"
-    ? Math.max(1, Math.min(customCount || 1, eligible.length || 1))
-    : preset === "all"
-      ? eligible.length
-      : preset;
+  const maxAvailable = Math.max(1, eligible.length);
+  const requestedCount = Math.max(1, Math.min(count || 1, maxAvailable));
 
   function start() {
     const shuffled = [...eligible].sort(() => Math.random() - 0.5);
@@ -105,6 +100,7 @@ export default function QuizPage() {
         outcomes: finalAttempts.map((a) => ({
           number: a.question.number,
           correct: a.correct,
+          chosen: a.chosen,
           categories: a.question.categories,
         })),
       });
@@ -191,37 +187,43 @@ export default function QuizPage() {
 
             <section className="space-y-3">
               <h2 className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-medium">{t("quiz.howMany")}</h2>
-              <div className="grid grid-cols-5 gap-2">
-                {PRESET_COUNTS.map((opt) => (
-                  <CountBtn key={opt} active={preset === opt} onClick={() => setPreset(opt)}>
-                    {opt}
-                  </CountBtn>
-                ))}
-                <CountBtn active={preset === "custom"} onClick={() => setPreset("custom")}>
-                  {t("quiz.count.custom")}
-                </CountBtn>
-              </div>
-              {preset === "custom" && (
-                <div className="flex items-center gap-3">
+              <div className="flex items-end gap-4 flex-wrap">
+                <label className="block">
                   <input
                     type="number"
                     inputMode="numeric"
                     min={1}
-                    max={Math.max(1, eligible.length)}
-                    value={customCount}
-                    onChange={(e) => setCustomCount(Math.max(1, Math.min(eligible.length, Number(e.target.value) || 1)))}
-                    className="w-28 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 focus:border-blue-500 dark:focus:border-sky-500 tabular-nums"
+                    max={maxAvailable}
+                    value={count}
+                    onChange={(e) => setCount(Math.max(1, Math.min(maxAvailable, Number(e.target.value) || 1)))}
+                    className="w-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-xl font-semibold focus:border-blue-500 dark:focus:border-sky-500 tabular-nums"
                   />
-                  <input
-                    type="range"
-                    min={1}
-                    max={Math.max(1, eligible.length)}
-                    value={customCount}
-                    onChange={(e) => setCustomCount(Number(e.target.value))}
-                    className="flex-1 accent-blue-600 dark:accent-sky-500"
-                  />
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">{t("quiz.max", { n: eligible.length })}</div>
+                </label>
+                <div className="flex flex-col gap-1.5">
+                  <div className="text-xs text-slate-500 dark:text-slate-400">{t("quiz.suggestions")}</div>
+                  <div className="flex gap-2">
+                    {SUGGESTIONS.map((n) => {
+                      const active = count === n;
+                      return (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setCount(Math.min(maxAvailable, n))}
+                          className={
+                            "px-4 py-2 rounded-xl border text-sm font-medium tabular-nums transition-all " +
+                            (active
+                              ? "bg-blue-600 border-blue-600 text-white dark:bg-sky-500 dark:border-sky-500 dark:text-slate-950"
+                              : "border-slate-200 hover:border-blue-300 dark:border-slate-800 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300")
+                          }
+                        >
+                          {n}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              )}
+              </div>
             </section>
 
             <button
@@ -419,6 +421,11 @@ function DoneScreen({ attempts, score, onNew, onSame }: { attempts: Attempt[]; s
           <ol className="space-y-3">
             {wrong.map((a) => (
               <li key={a.question.id} className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-white dark:bg-slate-900 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  {effectiveCategories(a.question.categories).map((c) => (
+                    <CategoryBadge key={c} c={c} />
+                  ))}
+                </div>
                 <div className="text-sm sm:text-base">
                   <span className="text-xs text-slate-500 dark:text-slate-500 mr-2">#{a.question.number}</span>
                   {a.question.text}
@@ -463,20 +470,12 @@ function SmallBtn({ children, onClick }: { children: React.ReactNode; onClick: (
   );
 }
 
-function CountBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function CategoryBadge({ c }: { c: string }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        "px-2 sm:px-3 py-2.5 rounded-xl border text-sm font-medium transition-all " +
-        (active
-          ? "bg-blue-600 border-blue-600 text-white dark:bg-sky-500 dark:border-sky-500 dark:text-slate-950 shadow-sm"
-          : "border-slate-200 hover:border-blue-300 dark:border-slate-800 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300")
-      }
-    >
-      {children}
-    </button>
+    <span className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-medium px-2 py-0.5 rounded border ${categoryBadgeClass(c)}`}>
+      <span className={`size-1.5 rounded-full ${categoryDotClass(c)}`} />
+      {shortLabel(c)}
+    </span>
   );
 }
 

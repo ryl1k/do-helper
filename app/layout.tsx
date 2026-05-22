@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Navbar } from "@/components/Navbar";
+import { Providers } from "@/components/Providers";
 
 const inter = Inter({
   subsets: ["latin", "cyrillic"],
@@ -35,8 +36,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
       <body className="antialiased">
-        <Navbar />
-        <div className="min-h-[calc(100vh-3.5rem)]">{children}</div>
+        <Providers>
+          <Navbar />
+          <div className="min-h-[calc(100vh-3.5rem)]">{children}</div>
+        </Providers>
       </body>
     </html>
   );
