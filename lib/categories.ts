@@ -14,6 +14,17 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number];
 
+// Catch-all bucket for questions the LLM couldn't slot into any of the 9 above,
+// and for any question whose categories[] ended up empty.
+export const OTHER = "Інше";
+export const ALL_CATEGORIES = [...CATEGORIES, OTHER] as const;
+export type AllCategory = (typeof ALL_CATEGORIES)[number];
+
+// A question always has at least one effective category. Empty -> ["Інше"].
+export function effectiveCategories(cats: readonly string[]): string[] {
+  return cats.length > 0 ? [...cats] : [OTHER];
+}
+
 // Optional short labels for tight spaces (pills, lists).
 export const CATEGORY_SHORT: Record<Category, string> = {
   "Загальні питання ДО": "Загальні питання",
@@ -26,6 +37,9 @@ export const CATEGORY_SHORT: Record<Category, string> = {
   "Багатовимірна оптимізація (методи прямого пошуку, градієнтні, квазіньютонівські)": "Багатовимірна",
   "Ігрові методи у ДО (класифікація ігор, стратегії, критерії)": "Ігрові методи",
 };
+
+// Short label registry includes the catch-all bucket too.
+const SHORT_OTHER: Record<string, string> = { ...CATEGORY_SHORT, [OTHER]: OTHER };
 
 // English hints sent to the LLM so it understands what each Ukrainian label means.
 export const CATEGORY_HINTS: Record<Category, string> = {
@@ -106,6 +120,12 @@ const STYLES: Record<string, { bg: string; text: string; border: string; dot: st
     border: "border-rose-300 dark:border-rose-800",
     dot: "bg-rose-500",
   },
+  "Інше": {
+    bg: "bg-slate-100 dark:bg-slate-800/60",
+    text: "text-slate-700 dark:text-slate-300",
+    border: "border-slate-300 dark:border-slate-700",
+    dot: "bg-slate-400",
+  },
 };
 
 const FALLBACK = {
@@ -131,7 +151,7 @@ export function categoryDotClass(c: string | null | undefined): string {
   return categoryStyle(c).dot;
 }
 
-// Short label fallback to full.
+// Short label fallback to full. Knows about "Інше".
 export function shortLabel(c: string): string {
-  return (CATEGORY_SHORT as Record<string, string>)[c] ?? c;
+  return SHORT_OTHER[c] ?? c;
 }
