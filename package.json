@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "parse": "node scripts/parse-tests.mjs",
+    "seed": "node --env-file=.env.local scripts/seed.mjs",
+    "seed:upsert": "node --env-file=.env.local scripts/seed.mjs --only-upsert",
+    "seed:categorize": "node --env-file=.env.local scripts/seed.mjs --only-categorize"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

@@ -2,5 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: light dark;
+}
+
 html, body { height: 100%; }
-body { background: #0b0d10; color: #e6e6e6; font-family: ui-sans-serif, system-ui, sans-serif; }
+
+body {
+  @apply bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Make focus rings consistent and on-brand */
+*:focus-visible {
+  @apply outline-none ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950;
+}
+
+/* Selection */
+::selection {
+  @apply bg-blue-200 text-blue-900 dark:bg-blue-500/40 dark:text-white;
+}
+
+/* Subtle scrollbars in dark */
+.dark ::-webkit-scrollbar { width: 10px; height: 10px; }
+.dark ::-webkit-scrollbar-thumb { background: rgb(30 41 59); border-radius: 8px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: rgb(51 65 85); }
