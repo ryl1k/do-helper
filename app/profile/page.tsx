@@ -1,41 +1,55 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CATEGORIES, categoryDotClass, shortLabel } from "@/lib/categories";
-import {
-  clearHistory,
-  loadProfile,
-  setProfileName,
-  summarize,
-  type ProfileData,
-} from "@/lib/stats";
+import { ALL_CATEGORIES, categoryBadgeClass, categoryDotClass, effectiveCategories, shortLabel } from "@/lib/categories";
+import { clearHistory, loadProfile, setProfileName, summarize, type ProfileData, type QuizResult } from "@/lib/stats";
+import { useProfile } from "@/lib/auth";
+import { useT } from "@/lib/i18n";
+import { letter, loadQuestions, type Question } from "@/lib/questions";
+import { AnswerSummary } from "@/components/AnswerSummary";
 
 export default function ProfilePage() {
-  const [data, setData] = useState<ProfileData | null>(null);
+  const { t } = useT();
+  const { session, profile: serverProfile, loading: authLoading } = useProfile();
+  const [local, setLocal] = useState<ProfileData | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [questionMap, setQuestionMap] = useState<Map<number, Question>>(new Map());
 
   useEffect(() => {
     const p = loadProfile();
-    setData(p);
+    setLocal(p);
     setDraft(p.name);
+    loadQuestions()
+      .then((qs) => setQuestionMap(new Map(qs.map((q) => [q.number, q]))))
+      .catch(() => {});
   }, []);
 
-  const stats = useMemo(() => (data ? summarize(data.quizzes) : null), [data]);
+  const stats = useMemo(() => (local ? summarize(local.quizzes) : null), [local]);
 
-  function saveName() {
-    setProfileName(draft.trim());
-    setData((d) => (d ? { ...d, name: draft.trim() } : d));
+  async function saveName() {
+    const name = draft.trim();
+    setProfileName(name);
+    setLocal((d) => (d ? { ...d, name } : d));
+
+    if (session?.user) {
+      const { getSupabase } = await import("@/lib/supabase-client");
+      await getSupabase().from("profiles").update({ display_name: name }).eq("id", session.user.id);
+    }
+
     setEditing(false);
   }
 
   function reset() {
-    if (!confirm("Clear all quiz history? Your name stays.")) return;
+    if (!confirm("Clear all local quiz history?")) return;
     clearHistory();
-    setData((d) => (d ? { ...d, quizzes: [] } : d));
+    setLocal((d) => (d ? { ...d, quizzes: [] } : d));
   }
 
-  if (!data) {
+  const displayName = (serverProfile?.display_name?.trim() || local?.name?.trim() || "");
+  const isLoggedIn = !!session?.user;
+
+  if (!local || authLoading) {
     return (
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <div className="animate-pulse space-y-4">
@@ -48,14 +62,21 @@ export default function ProfilePage() {
     );
   }
 
-  const empty = data.quizzes.length === 0;
+  const empty = local.quizzes.length === 0;
+
+  // Local stats are authoritative for the profile headline — they accumulate from
+  // every quiz the user has taken in this browser, regardless of login state.
+  // Server attempts (separate table) feed the leaderboard.
+  const headlineQuizzes = local.quizzes.length;
+  const headlineQuestions = stats?.totalQ ?? 0;
+  const headlineCorrect = stats?.totalC ?? 0;
+  const headlineAcc = headlineQuestions > 0 ? Math.round((headlineCorrect / headlineQuestions) * 100) : null;
 
   return (
     <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8">
-      {/* Identity */}
       <header className="flex items-center gap-4">
         <div className="size-14 sm:size-16 rounded-2xl bg-blue-600 dark:bg-sky-500 text-white dark:text-slate-950 flex items-center justify-center text-xl sm:text-2xl font-bold shadow-sm">
-          {(data.name || "?").slice(0, 1).toUpperCase()}
+          {(displayName || "?").slice(0, 1).toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
           {editing ? (
@@ -65,59 +86,78 @@ export default function ProfilePage() {
                 autoFocus
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && saveName()}
-                placeholder="Your name"
+                placeholder={t("profile.editName")}
                 className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-base focus:border-blue-500 dark:focus:border-sky-500"
               />
-              <button type="button" onClick={saveName} className="text-sm px-3 py-1.5 rounded-lg bg-blue-600 dark:bg-sky-500 text-white dark:text-slate-950 font-medium">save</button>
+              <button type="button" onClick={saveName} className="text-sm px-3 py-1.5 rounded-lg bg-blue-600 dark:bg-sky-500 text-white dark:text-slate-950 font-medium">{t("profile.save")}</button>
             </div>
           ) : (
             <>
               <h1 className="text-xl sm:text-2xl font-semibold tracking-tight truncate">
-                {data.name || "Anonymous"}
+                {displayName || t("profile.anonymous")}
               </h1>
-              <button
-                type="button"
-                onClick={() => { setDraft(data.name); setEditing(true); }}
-                className="text-xs text-blue-600 dark:text-sky-400 hover:underline"
-              >
-                {data.name ? "edit name" : "set name"}
-              </button>
+              <div className="flex gap-3 items-center mt-0.5">
+                {isLoggedIn && (
+                  <div className="text-xs text-slate-500 dark:text-slate-400">{session!.user.email}</div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setDraft(displayName); setEditing(true); }}
+                  className="text-xs text-blue-600 dark:text-sky-400 hover:underline"
+                >
+                  {displayName ? t("profile.editName") : t("profile.setName")}
+                </button>
+              </div>
             </>
           )}
         </div>
       </header>
 
-      {/* Headline stats */}
+      {!isLoggedIn && (
+        <div className="rounded-2xl border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 p-4 sm:p-5 flex items-start gap-3">
+          <span className="inline-flex items-center justify-center size-9 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 9v4M12 17h.01" /><circle cx="12" cy="12" r="10" /></svg>
+          </span>
+          <div className="flex-1 min-w-0 space-y-1">
+            <div className="text-sm font-medium text-amber-900 dark:text-amber-200">{t("profile.guest")}</div>
+            <div className="text-sm text-amber-800 dark:text-amber-300/80">{t("profile.guestExplain")}</div>
+          </div>
+          <Link
+            href="/login"
+            className="shrink-0 inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 dark:bg-sky-500 dark:hover:bg-sky-400 text-white dark:text-slate-950 text-sm font-semibold transition-colors"
+          >
+            {t("profile.signIn")}
+          </Link>
+        </div>
+      )}
+
       <section className="grid grid-cols-3 gap-2 sm:gap-3">
-        <Stat label="Quizzes" value={data.quizzes.length} />
-        <Stat label="Questions" value={stats?.totalQ ?? 0} />
+        <Stat label={t("profile.stats.quizzes")} value={headlineQuizzes} />
+        <Stat label={t("profile.stats.questions")} value={headlineQuestions} />
         <Stat
-          label="Accuracy"
-          value={stats ? `${Math.round(stats.accuracy * 100)}%` : "—"}
-          tone={stats && stats.accuracy >= 0.8 ? "good" : stats && stats.accuracy >= 0.5 ? "ok" : "low"}
+          label={t("profile.stats.accuracy")}
+          value={headlineAcc !== null ? `${headlineAcc}%` : "—"}
+          tone={headlineAcc !== null ? (headlineAcc >= 80 ? "good" : headlineAcc >= 50 ? "ok" : "low") : undefined}
         />
       </section>
 
       {empty ? (
         <div className="border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl p-10 text-center space-y-3">
-          <div className="text-slate-600 dark:text-slate-400">No quizzes yet.</div>
+          <div className="text-slate-600 dark:text-slate-400">{t("profile.noQuizzes")}</div>
           <Link
             href="/quiz"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-sky-500 dark:hover:bg-sky-400 text-white dark:text-slate-950 font-semibold transition-colors"
           >
-            Take your first quiz →
+            {t("profile.firstQuiz")}
           </Link>
         </div>
       ) : (
         <>
-          {/* Per-category accuracy */}
           {stats && (
             <section className="space-y-3">
-              <h2 className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-medium">
-                Accuracy by topic
-              </h2>
+              <h2 className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-medium">{t("profile.byTopic")}</h2>
               <ul className="space-y-2">
-                {CATEGORIES.map((c) => {
+                {ALL_CATEGORIES.map((c) => {
                   const s = stats.perCat[c];
                   const total = s?.total ?? 0;
                   const correct = s?.correct ?? 0;
@@ -127,16 +167,11 @@ export default function ProfilePage() {
                       <div className="flex items-center gap-2 text-sm">
                         <span className={`size-2 rounded-full ${categoryDotClass(c)}`} />
                         <span className="flex-1 truncate text-slate-700 dark:text-slate-300">{shortLabel(c)}</span>
-                        <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400">
-                          {total > 0 ? `${correct}/${total}` : "—"}
-                        </span>
+                        <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400">{total > 0 ? `${correct}/${total}` : "—"}</span>
                       </div>
                       <div className="h-1.5 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden">
                         {total > 0 && (
-                          <div
-                            className="h-full bg-blue-600 dark:bg-sky-500 transition-[width] duration-300"
-                            style={{ width: `${acc * 100}%` }}
-                          />
+                          <div className="h-full bg-blue-600 dark:bg-sky-500 transition-[width] duration-300" style={{ width: `${acc * 100}%` }} />
                         )}
                       </div>
                     </li>
@@ -146,54 +181,160 @@ export default function ProfilePage() {
             </section>
           )}
 
-          {/* Recent activity */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-medium">
-                Recent quizzes
-              </h2>
+              <h2 className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-medium">{t("profile.recent")}</h2>
               <button
                 type="button"
                 onClick={reset}
                 className="text-xs text-slate-500 hover:text-red-600 dark:text-slate-500 dark:hover:text-red-400 transition-colors"
               >
-                clear history
+                {t("profile.clearHistory")}
               </button>
             </div>
             <ul className="divide-y divide-slate-200 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 overflow-hidden">
-              {data.quizzes.slice(0, 10).map((q, i) => {
-                const pct = q.total ? Math.round((q.correct / q.total) * 100) : 0;
-                return (
-                  <li key={i} className="px-4 py-3 flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm">
-                        <b className="tabular-nums">{q.correct}/{q.total}</b>
-                        <span className="text-slate-500 dark:text-slate-400 ml-2 text-xs">{new Date(q.date).toLocaleString()}</span>
-                      </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                        {q.categories.length === CATEGORIES.length
-                          ? "all topics"
-                          : q.categories.map((c) => shortLabel(c)).join(", ")}
-                      </div>
-                    </div>
-                    <span
-                      className={
-                        "text-sm font-semibold tabular-nums " +
-                        (pct >= 80 ? "text-emerald-600 dark:text-emerald-400"
-                          : pct >= 50 ? "text-blue-600 dark:text-sky-400"
-                          : "text-amber-600 dark:text-amber-400")
-                      }
-                    >
-                      {pct}%
-                    </span>
-                  </li>
-                );
-              })}
+              {local.quizzes.slice(0, 10).map((q, i) => (
+                <QuizHistoryRow key={i} q={q} questionMap={questionMap} />
+              ))}
             </ul>
           </section>
         </>
       )}
     </main>
+  );
+}
+
+function QuizHistoryRow({ q, questionMap }: { q: QuizResult; questionMap: Map<number, Question> }) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const pct = q.total ? Math.round((q.correct / q.total) * 100) : 0;
+  const wrong = q.outcomes.filter((o) => !o.correct);
+  const canExpand = q.outcomes.length > 0;
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => canExpand && setOpen((v) => !v)}
+        className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+        aria-expanded={open}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="text-sm">
+            <b className="tabular-nums">{q.correct}/{q.total}</b>
+            <span className="text-slate-500 dark:text-slate-400 ml-2 text-xs">{new Date(q.date).toLocaleString()}</span>
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+            {q.categories.length === ALL_CATEGORIES.length ? t("profile.allTopics") : q.categories.map((c) => shortLabel(c)).join(", ")}
+          </div>
+        </div>
+        {wrong.length > 0 && (
+          <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/40 tabular-nums shrink-0">
+            {wrong.length} {t("profile.wrong")}
+          </span>
+        )}
+        <span className={"text-sm font-semibold tabular-nums shrink-0 " + (pct >= 80 ? "text-emerald-600 dark:text-emerald-400" : pct >= 50 ? "text-blue-600 dark:text-sky-400" : "text-amber-600 dark:text-amber-400")}>
+          {pct}%
+        </span>
+        <span className="text-slate-400 dark:text-slate-500 shrink-0" aria-hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={"transition-transform " + (open ? "rotate-180" : "")}><polyline points="6 9 12 15 18 9" /></svg>
+        </span>
+      </button>
+
+      {open && <QuizHistoryDetails q={q} wrongCount={wrong.length} questionMap={questionMap} />}
+    </li>
+  );
+}
+
+function QuizHistoryDetails({ q, wrongCount, questionMap }: { q: QuizResult; wrongCount: number; questionMap: Map<number, Question> }) {
+  const { t } = useT();
+  const [wrongOnly, setWrongOnly] = useState(false);
+  const list = wrongOnly ? q.outcomes.filter((o) => !o.correct) : q.outcomes;
+
+  return (
+    <div className="px-4 pb-4 space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-xs text-slate-500 dark:text-slate-400">
+          {t("profile.wrongOf", { w: wrongCount, n: q.total })}
+        </div>
+        {wrongCount > 0 && wrongCount < q.total && (
+          <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => setWrongOnly(false)}
+              className={"px-2.5 py-1 transition-colors " + (!wrongOnly ? "bg-blue-600 text-white dark:bg-sky-500 dark:text-slate-950" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800")}
+              aria-pressed={!wrongOnly}
+            >
+              {t("profile.showAll")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setWrongOnly(true)}
+              className={"px-2.5 py-1 transition-colors " + (wrongOnly ? "bg-blue-600 text-white dark:bg-sky-500 dark:text-slate-950" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800")}
+              aria-pressed={wrongOnly}
+            >
+              {t("profile.wrongOnly")}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {wrongCount === 0 && (
+        <div className="text-sm text-emerald-600 dark:text-emerald-400">{t("profile.noWrongInQuiz")}</div>
+      )}
+
+      <ol className="space-y-2">
+        {list.map((o, j) => {
+          const question = questionMap.get(o.number);
+          if (!question) {
+            return (
+              <li key={j} className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 text-xs text-slate-500">
+                #{o.number} — question not found
+              </li>
+            );
+          }
+          return (
+            <li key={j} className={"rounded-lg border p-3 space-y-2 " + (o.correct ? "border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-red-200 dark:border-red-500/30 bg-red-50/40 dark:bg-red-950/20")}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {effectiveCategories(question.categories).map((c) => (
+                    <span key={c} className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-medium px-2 py-0.5 rounded border ${categoryBadgeClass(c)}`}>
+                      <span className={`size-1.5 rounded-full ${categoryDotClass(c)}`} />
+                      {shortLabel(c)}
+                    </span>
+                  ))}
+                </div>
+                <span className={"text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full " + (o.correct ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300")}>
+                  {o.correct ? t("profile.statusCorrect") : t("profile.statusWrong")}
+                </span>
+              </div>
+              <div className="text-sm">
+                <span className="text-xs text-slate-500 dark:text-slate-500 mr-2 tabular-nums">#{question.number}</span>
+                {question.text}
+              </div>
+              <ol className="space-y-1 text-sm">
+                {question.options.map((opt, k) => {
+                  const isCorrect = question.correct_indices.includes(k);
+                  const wasChosen = o.chosen?.includes(k);
+                  let cls = "border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40";
+                  if (isCorrect) cls = "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-500/60";
+                  else if (wasChosen) cls = "border-red-500 bg-red-50 dark:bg-red-950/40 dark:border-red-500/60";
+                  return (
+                    <li key={k} className={"flex items-start gap-2.5 rounded-lg border px-3 py-1.5 " + cls}>
+                      <span className="opacity-50 w-4 shrink-0 text-xs pt-0.5">{letter(k)}.</span>
+                      <span className="flex-1">{opt}</span>
+                      {isCorrect && <span className="text-xs text-emerald-600 dark:text-emerald-400 shrink-0">✓</span>}
+                      {!isCorrect && wasChosen && <span className="text-xs text-red-600 dark:text-red-400 shrink-0">✕</span>}
+                    </li>
+                  );
+                })}
+              </ol>
+              <AnswerSummary chosen={o.chosen} correctIndices={question.correct_indices} />
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 

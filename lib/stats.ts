@@ -8,7 +8,7 @@ export interface QuizResult {
   total: number;
   correct: number;
   // Per-question outcomes are kept compact so we can rebuild "review wrong" later.
-  outcomes: { number: number; correct: boolean; categories: string[] }[];
+  outcomes: { number: number; correct: boolean; chosen?: number[]; categories: string[] }[];
 }
 
 export interface ProfileData {

@@ -2,8 +2,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
+import { LocaleToggle } from "./LocaleToggle";
+import { AuthButton } from "./AuthButton";
+import { useT } from "@/lib/i18n";
 
 export function Navbar() {
+  const { t } = useT();
   return (
     <nav
       className="sticky top-0 z-40 backdrop-blur
@@ -11,23 +15,22 @@ export function Navbar() {
                  border-b border-slate-200 dark:border-slate-800"
     >
       <div className="max-w-6xl mx-auto px-3 sm:px-6 h-14 flex items-center gap-1 sm:gap-2">
-        <Link
-          href="/"
-          className="flex items-center gap-2 mr-auto sm:mr-6 group"
-          aria-label="Home"
-        >
+        <Link href="/" className="flex items-center gap-2 mr-auto sm:mr-6" aria-label="Home">
           <Logo />
           <span className="font-semibold tracking-tight hidden xs:inline">
-            do<span className="text-blue-600 dark:text-sky-400">·</span>helper
+            do<span className="text-blue-600 dark:text-sky-400">·</span>{t("brand.suffix")}
           </span>
         </Link>
 
-        <NavLink href="/quiz" icon={<PlayIcon />}>Quiz</NavLink>
-        <NavLink href="/search" icon={<SearchIcon />}>Search</NavLink>
-        <NavLink href="/profile" icon={<UserIcon />}>Profile</NavLink>
+        <NavLink href="/quiz" icon={<PlayIcon />}>{t("nav.quiz")}</NavLink>
+        <NavLink href="/search" icon={<SearchIcon />}>{t("nav.search")}</NavLink>
+        <NavLink href="/faq" icon={<HelpIcon />}>{t("nav.faq")}</NavLink>
 
-        <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1" />
+        <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1 sm:mx-2" />
+
+        <LocaleToggle />
         <ThemeToggle />
+        <AuthButton />
       </div>
     </nav>
   );
@@ -64,8 +67,8 @@ function Logo() {
 
 function PlayIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <polygon points="6 4 20 12 6 20 6 4" />
     </svg>
   );
 }
@@ -79,11 +82,12 @@ function SearchIcon() {
   );
 }
 
-function UserIcon() {
+function HelpIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 21v-1a8 8 0 0 1 16 0v1" />
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
     </svg>
   );
 }
