@@ -59,7 +59,7 @@ const STRINGS = {
 
     "search.title": "Каталог",
     "search.placeholder": "Шукати питання або варіант…",
-    "search.shown": "{n} показано",
+    "search.shown": "Показано {n} з {total}",
     "search.showAnswers": "показати відповіді",
     "search.hide": "Сховати",
     "search.reveal": "Показати",
@@ -170,7 +170,7 @@ const STRINGS = {
 
     "search.title": "Catalog",
     "search.placeholder": "Search question text or options…",
-    "search.shown": "{n} shown",
+    "search.shown": "Showing {n} of {total}",
     "search.showAnswers": "show answers",
     "search.hide": "Hide",
     "search.reveal": "Reveal",

@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ALL_CATEGORIES, categoryBadgeClass, categoryDotClass, effectiveCategories, shortLabel } from "@/lib/categories";
 import { loadQuestions, letter, type Question } from "@/lib/questions";
@@ -21,6 +21,8 @@ function SkeletonPage() {
   );
 }
 
+const PAGE_SIZE = 30;
+
 function SearchInner() {
   const params = useSearchParams();
   const initialCat = params.get("cat");
@@ -29,8 +31,9 @@ function SearchInner() {
   const [err, setErr] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState<string | null>(initialCat);
-  // Default: hide all answers (per request). Per-card reveal still works.
   const [revealAll, setRevealAll] = useState(false);
+  const [shown, setShown] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadQuestions().then(setQs).catch((e) => setErr(String(e?.message ?? e)));
@@ -59,6 +62,29 @@ function SearchInner() {
       return q.options.some((o) => o.toLowerCase().includes(needle));
     });
   }, [qs, query, activeCat]);
+
+  // Reset visible window whenever the filter changes — otherwise scroll position
+  // and slice would be stuck mid-list when switching categories.
+  useEffect(() => { setShown(PAGE_SIZE); }, [query, activeCat]);
+
+  // Infinite scroll: grow `shown` by one page when sentinel enters viewport.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setShown((s) => Math.min(s + PAGE_SIZE, filtered.length));
+        }
+      },
+      { rootMargin: "300px" },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [filtered.length, shown]);
+
+  const visible = filtered.slice(0, shown);
+  const hasMore = shown < filtered.length;
 
   return (
     <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-6">
@@ -117,14 +143,20 @@ function SearchInner() {
       </div>
 
       <div className="text-xs text-slate-500 dark:text-slate-500">
-        {t("search.shown", { n: filtered.length })}
+        {t("search.shown", { n: visible.length, total: filtered.length })}
       </div>
 
       {err && <div className="text-sm text-red-500">{err}</div>}
 
       <ol className="space-y-3">
-        {filtered.map((q) => <Card key={q.id} q={q} reveal={revealAll} />)}
+        {visible.map((q) => <Card key={q.id} q={q} reveal={revealAll} />)}
       </ol>
+
+      {hasMore && (
+        <div ref={sentinelRef} className="py-6 flex justify-center" aria-hidden>
+          <div className="size-6 rounded-full border-2 border-slate-200 dark:border-slate-800 border-t-blue-600 dark:border-t-sky-500 animate-spin" />
+        </div>
+      )}
 
       {qs && filtered.length === 0 && (
         <div className="text-center py-16 text-slate-500 dark:text-slate-400">
