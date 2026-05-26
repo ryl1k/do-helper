@@ -1,8 +1,10 @@
-# do-helper
+# oistudy
 
-Study & quiz tool for the **Дослідження операцій** (Operations Research) exam — 520 questions across 9 topics, with the correct answers marked.
+Multi-subject study & quiz tool. Each subject has its own question bank, topics, accent color, and per-option AI-generated explanations. One profile carries your history across every subject.
 
-Live data is seeded from a community-sourced bank (Crowdly + VNS); see [`/faq`](app/faq/page.tsx) inside the app for the full disclaimer.
+The first subject shipped is **Дослідження операцій** (Operations Research, 520 questions, 9 topics, full answer explanations). Adding more is a matter of one SQL insert + a parsed question file.
+
+Live data for DO is seeded from a community-sourced bank (Crowdly + VNS); see [`/faq`](app/faq/page.tsx) inside the app for the full disclaimer.
 
 ## Features
 

@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Kbd } from "@/components/shell/Kbd";
+import { Logo } from "@/components/shell/Logo";
 import { signInWithGoogle, signInWithMagicLink, useSession } from "@/lib/auth";
-import { useT } from "@/lib/i18n";
 
 export default function LoginPage() {
-  const { t } = useT();
   const router = useRouter();
   const { session, loading } = useSession();
   const [email, setEmail] = useState("");
@@ -24,11 +25,8 @@ export default function LoginPage() {
       const redirect = `${window.location.origin}/profile`;
       await signInWithMagicLink(email.trim(), redirect);
       setSent(true);
-    } catch (e: any) {
-      setErr(t("login.error") + (e?.message ?? String(e)));
-    } finally {
-      setBusy(false);
-    }
+    } catch (e: any) { setErr(e?.message ?? String(e)); }
+    finally { setBusy(false); }
   }
 
   async function clickGoogle() {
@@ -36,74 +34,88 @@ export default function LoginPage() {
     try {
       const redirect = `${window.location.origin}/profile`;
       await signInWithGoogle(redirect);
-    } catch (e: any) {
-      setErr(t("login.error") + (e?.message ?? String(e)));
-    }
+    } catch (e: any) { setErr(e?.message ?? String(e)); }
   }
 
   return (
-    <main className="max-w-md mx-auto px-4 sm:px-6 py-12 sm:py-20 space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">{t("login.title")}</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400">{t("login.subtitle")}</p>
-      </header>
+    <div className="min-h-screen bg-canvas text-ink flex flex-col items-center justify-center px-6 py-10">
+      <div className="w-full max-w-[380px]">
+        <Logo size={36} />
+        <h1 className="text-[26px] font-semibold tracking-tighter2 mt-5">Увійти в <span className="text-cyan">oi</span>study</h1>
+        <p className="text-[13px] text-ink-dim mt-1.5 leading-relaxed">
+          Збережи прогрес між пристроями. Без входу — статистика залишається лише на цьому пристрої.
+        </p>
 
-      {sent ? (
-        <div className="rounded-xl border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 px-4 py-3 text-sm">
-          {t("login.sent")}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <button
-            type="button"
-            onClick={clickGoogle}
-            className="w-full flex items-center justify-center gap-3 px-5 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-blue-400 dark:hover:border-sky-500 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium transition-colors"
-          >
-            <GoogleIcon />
-            <span>{t("login.google")}</span>
-          </button>
-
-          <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-500">
-            <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
-            <span className="uppercase tracking-wider">{t("login.or")}</span>
-            <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+        {sent ? (
+          <div className="mt-6 panel border-good/30 bg-good/[0.06] p-4 text-[13px] text-good">
+            Перевір пошту — там посилання для входу.
           </div>
+        ) : (
+          <>
+            <form onSubmit={submitMagic} className="mt-6">
+              <div className="eyebrow mb-1.5">Email</div>
+              <div className="h-10 border border-lineStrong rounded-md px-3 flex items-center bg-surface focus-within:border-cyan transition-colors">
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="bg-transparent w-full h-full outline-none text-[13px]"
+                  placeholder="you@example.com"
+                  autoFocus
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={busy || !email.trim()}
+                className="mt-2.5 w-full py-2.5 rounded-md bg-cyan text-canvas text-[13px] font-semibold flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-cyan/90 transition-colors"
+              >
+                {busy ? "Надсилаємо…" : "Надіслати magic-link"}
+                {!busy && <Kbd inverse>↵</Kbd>}
+              </button>
+            </form>
 
-          <form onSubmit={submitMagic} className="space-y-3">
-            <label className="block">
-              <span className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t("login.email")}</span>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-base focus:border-blue-500 dark:focus:border-sky-500"
-                placeholder="you@example.com"
-              />
-            </label>
+            <div className="flex items-center gap-2.5 my-5">
+              <div className="flex-1 h-px bg-line" />
+              <span className="eyebrow">або</span>
+              <div className="flex-1 h-px bg-line" />
+            </div>
+
             <button
-              type="submit"
-              disabled={busy || !email.trim()}
-              className="w-full px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-sky-500 dark:hover:bg-sky-400 disabled:opacity-50 text-white dark:text-slate-950 font-semibold transition-colors"
+              type="button"
+              onClick={clickGoogle}
+              className="w-full py-2.5 bg-surface border border-line rounded-md text-[13px] flex items-center justify-center gap-2.5 hover:border-lineStrong transition-colors"
             >
-              {busy ? "…" : t("login.send")}
+              <GoogleIcon />
+              Увійти через Google
             </button>
-          </form>
 
-          {err && <div className="text-sm text-red-500">{err}</div>}
+            <div className="mt-5 panel border-dashed p-3.5 text-[11px] text-ink-dim leading-relaxed flex gap-2.5">
+              <span className="text-ink-mute">i</span>
+              <span>
+                Можна продовжити <Link href="/" className="text-ink underline underline-offset-2">без входу</Link> — твоя статистика залишиться лише на цьому пристрої.
+              </span>
+            </div>
+
+            {err && <div className="mt-4 text-bad text-[12px]">{err}</div>}
+          </>
+        )}
+
+        <div className="mt-7 text-[10px] text-ink-mute text-center">
+          Студентський проєкт · <Link href="/faq" className="text-ink-dim underline underline-offset-2">умови</Link>
         </div>
-      )}
-    </main>
+      </div>
+    </div>
   );
 }
 
 function GoogleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
-      <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
-      <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" />
-      <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
-      <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571.001-.001.002-.001.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+      <path fill="#4285F4" d="M15.5 8.18c0-.57-.05-1.12-.15-1.64H8v3.11h4.21a3.6 3.6 0 01-1.56 2.36v1.97h2.52c1.47-1.36 2.33-3.37 2.33-5.8z"/>
+      <path fill="#34A853" d="M8 16c2.11 0 3.88-.7 5.17-1.9l-2.52-1.97c-.7.47-1.6.75-2.65.75-2.04 0-3.76-1.38-4.38-3.23H1.04v2.03A8 8 0 008 16z"/>
+      <path fill="#FBBC05" d="M3.62 9.65a4.8 4.8 0 010-3.05V4.57H1.04a8 8 0 000 6.86l2.58-1.78z"/>
+      <path fill="#EA4335" d="M8 3.18c1.15 0 2.18.4 3 1.17l2.23-2.23A8 8 0 001.04 4.57l2.58 2.03C4.24 4.55 5.96 3.18 8 3.18z"/>
     </svg>
   );
 }

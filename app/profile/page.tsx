@@ -1,353 +1,216 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ALL_CATEGORIES, categoryBadgeClass, categoryDotClass, effectiveCategories, shortLabel } from "@/lib/categories";
-import { clearHistory, loadProfile, setProfileName, summarize, type ProfileData, type QuizResult } from "@/lib/stats";
+import { AppShell } from "@/components/shell/AppShell";
 import { useProfile } from "@/lib/auth";
-import { useT } from "@/lib/i18n";
-import { letter, loadQuestions, type Question } from "@/lib/questions";
-import { AnswerSummary } from "@/components/AnswerSummary";
+import { clearHistory, loadProfile, setProfileName, summarize, subjectsPlayed, type ProfileData, type QuizResult } from "@/lib/stats";
+import { loadSubjects, type Subject } from "@/lib/subjects";
 
 export default function ProfilePage() {
-  const { t } = useT();
-  const { session, profile: serverProfile, loading: authLoading } = useProfile();
+  const { session, profile: serverProfile } = useProfile();
   const [local, setLocal] = useState<ProfileData | null>(null);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
-  const [questionMap, setQuestionMap] = useState<Map<number, Question>>(new Map());
 
   useEffect(() => {
     const p = loadProfile();
     setLocal(p);
     setDraft(p.name);
-    loadQuestions()
-      .then((qs) => setQuestionMap(new Map(qs.map((q) => [q.number, q]))))
-      .catch(() => {});
+    loadSubjects().then(setSubjects).catch(() => {});
   }, []);
 
-  const stats = useMemo(() => (local ? summarize(local.quizzes) : null), [local]);
+  const displayName = (serverProfile?.display_name?.trim() || local?.name?.trim() || session?.user?.email?.split("@")[0] || "");
+  const initials = (displayName || "?").slice(0, 1).toUpperCase();
+
+  const overall = useMemo(() => (local ? summarize(local.quizzes) : null), [local]);
+  const subjMap = useMemo(() => new Map(subjects.map((s) => [s.slug, s])), [subjects]);
 
   async function saveName() {
     const name = draft.trim();
     setProfileName(name);
     setLocal((d) => (d ? { ...d, name } : d));
-
     if (session?.user) {
       const { getSupabase } = await import("@/lib/supabase-client");
       await getSupabase().from("profiles").update({ display_name: name }).eq("id", session.user.id);
     }
-
     setEditing(false);
   }
 
   function reset() {
-    if (!confirm("Clear all local quiz history?")) return;
+    if (!confirm("Очистити локальну історію тестів?")) return;
     clearHistory();
     setLocal((d) => (d ? { ...d, quizzes: [] } : d));
   }
 
-  const displayName = (serverProfile?.display_name?.trim() || local?.name?.trim() || "");
-  const isLoggedIn = !!session?.user;
-
-  if (!local || authLoading) {
-    return (
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 w-40 bg-slate-200 dark:bg-slate-800 rounded" />
-          <div className="grid sm:grid-cols-3 gap-3">
-            {[...Array(3)].map((_, i) => <div key={i} className="h-24 rounded-xl bg-slate-100 dark:bg-slate-900" />)}
-          </div>
-        </div>
-      </main>
-    );
+  async function signOut() {
+    const { getSupabase } = await import("@/lib/supabase-client");
+    await getSupabase().auth.signOut();
+    window.location.href = "/";
   }
 
-  const empty = local.quizzes.length === 0;
-
-  // Local stats are authoritative for the profile headline — they accumulate from
-  // every quiz the user has taken in this browser, regardless of login state.
-  // Server attempts (separate table) feed the leaderboard.
-  const headlineQuizzes = local.quizzes.length;
-  const headlineQuestions = stats?.totalQ ?? 0;
-  const headlineCorrect = stats?.totalC ?? 0;
-  const headlineAcc = headlineQuestions > 0 ? Math.round((headlineCorrect / headlineQuestions) * 100) : null;
-
   return (
-    <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8">
-      <header className="flex items-center gap-4">
-        <div className="size-14 sm:size-16 rounded-2xl bg-blue-600 dark:bg-sky-500 text-white dark:text-slate-950 flex items-center justify-center text-xl sm:text-2xl font-bold shadow-sm">
-          {(displayName || "?").slice(0, 1).toUpperCase()}
-        </div>
-        <div className="flex-1 min-w-0">
-          {editing ? (
-            <div className="flex gap-2 items-center">
-              <input
-                value={draft}
-                autoFocus
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && saveName()}
-                placeholder={t("profile.editName")}
-                className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-base focus:border-blue-500 dark:focus:border-sky-500"
-              />
-              <button type="button" onClick={saveName} className="text-sm px-3 py-1.5 rounded-lg bg-blue-600 dark:bg-sky-500 text-white dark:text-slate-950 font-medium">{t("profile.save")}</button>
-            </div>
-          ) : (
-            <>
-              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight truncate">
-                {displayName || t("profile.anonymous")}
-              </h1>
-              <div className="flex gap-3 items-center mt-0.5">
-                {isLoggedIn && (
-                  <div className="text-xs text-slate-500 dark:text-slate-400">{session!.user.email}</div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => { setDraft(displayName); setEditing(true); }}
-                  className="text-xs text-blue-600 dark:text-sky-400 hover:underline"
-                >
-                  {displayName ? t("profile.editName") : t("profile.setName")}
+    <AppShell crumbs={[{ label: "Профіль" }]}>
+      <div className="min-h-full">
+        {/* Header */}
+        <div className="px-6 sm:px-10 py-7 border-b border-line flex items-center gap-4">
+          <div
+            className="size-14 rounded-xl flex items-center justify-center font-mono font-bold text-canvas text-xl"
+            style={{ background: "linear-gradient(135deg,#5eb6ff,#a78bfa)" }}
+          >
+            {initials}
+          </div>
+          <div className="flex-1 min-w-0">
+            {editing ? (
+              <div className="flex gap-2 items-center">
+                <input
+                  value={draft}
+                  autoFocus
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && saveName()}
+                  placeholder="Ім'я"
+                  className="flex-1 bg-surface border border-line rounded-md px-3 py-1.5 text-[14px] outline-none focus:border-cyan"
+                />
+                <button onClick={saveName} className="px-3 py-1.5 rounded-md bg-cyan text-canvas text-[12px] font-semibold">
+                  Зберегти
                 </button>
               </div>
-            </>
-          )}
-        </div>
-      </header>
-
-      {!isLoggedIn && (
-        <div className="rounded-2xl border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 p-4 sm:p-5 flex items-start gap-3">
-          <span className="inline-flex items-center justify-center size-9 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 9v4M12 17h.01" /><circle cx="12" cy="12" r="10" /></svg>
-          </span>
-          <div className="flex-1 min-w-0 space-y-1">
-            <div className="text-sm font-medium text-amber-900 dark:text-amber-200">{t("profile.guest")}</div>
-            <div className="text-sm text-amber-800 dark:text-amber-300/80">{t("profile.guestExplain")}</div>
+            ) : (
+              <>
+                <h1 className="text-[22px] font-semibold tracking-tighter2 truncate">
+                  {displayName || "Без імені"}
+                </h1>
+                <div className="flex gap-3 items-center mt-1">
+                  {session?.user?.email && <span className="text-[12px] text-ink-mute font-mono">{session.user.email}</span>}
+                  <button
+                    onClick={() => { setDraft(displayName); setEditing(true); }}
+                    className="text-[11px] text-cyan hover:underline"
+                  >
+                    {displayName ? "змінити" : "встановити ім'я"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
-          <Link
-            href="/login"
-            className="shrink-0 inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 dark:bg-sky-500 dark:hover:bg-sky-400 text-white dark:text-slate-950 text-sm font-semibold transition-colors"
-          >
-            {t("profile.signIn")}
-          </Link>
-        </div>
-      )}
-
-      <section className="grid grid-cols-3 gap-2 sm:gap-3">
-        <Stat label={t("profile.stats.quizzes")} value={headlineQuizzes} />
-        <Stat label={t("profile.stats.questions")} value={headlineQuestions} />
-        <Stat
-          label={t("profile.stats.accuracy")}
-          value={headlineAcc !== null ? `${headlineAcc}%` : "—"}
-          tone={headlineAcc !== null ? (headlineAcc >= 80 ? "good" : headlineAcc >= 50 ? "ok" : "low") : undefined}
-        />
-      </section>
-
-      {empty ? (
-        <div className="border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl p-10 text-center space-y-3">
-          <div className="text-slate-600 dark:text-slate-400">{t("profile.noQuizzes")}</div>
-          <Link
-            href="/quiz"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-sky-500 dark:hover:bg-sky-400 text-white dark:text-slate-950 font-semibold transition-colors"
-          >
-            {t("profile.firstQuiz")}
-          </Link>
-        </div>
-      ) : (
-        <>
-          {stats && (
-            <section className="space-y-3">
-              <h2 className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-medium">{t("profile.byTopic")}</h2>
-              <ul className="space-y-2">
-                {ALL_CATEGORIES.map((c) => {
-                  const s = stats.perCat[c];
-                  const total = s?.total ?? 0;
-                  const correct = s?.correct ?? 0;
-                  const acc = total === 0 ? 0 : correct / total;
-                  return (
-                    <li key={c} className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className={`size-2 rounded-full ${categoryDotClass(c)}`} />
-                        <span className="flex-1 truncate text-slate-700 dark:text-slate-300">{shortLabel(c)}</span>
-                        <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400">{total > 0 ? `${correct}/${total}` : "—"}</span>
-                      </div>
-                      <div className="h-1.5 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden">
-                        {total > 0 && (
-                          <div className="h-full bg-blue-600 dark:bg-sky-500 transition-[width] duration-300" style={{ width: `${acc * 100}%` }} />
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
+          {session ? (
+            <button onClick={signOut} className="px-3 py-1.5 rounded-md border border-line text-[12px] text-ink-dim hover:text-bad hover:border-bad/40">
+              Вийти
+            </button>
+          ) : (
+            <Link href="/login" className="px-3 py-1.5 rounded-md bg-cyan text-canvas text-[12px] font-semibold">
+              Увійти
+            </Link>
           )}
+        </div>
 
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-medium">{t("profile.recent")}</h2>
-              <button
-                type="button"
-                onClick={reset}
-                className="text-xs text-slate-500 hover:text-red-600 dark:text-slate-500 dark:hover:text-red-400 transition-colors"
-              >
-                {t("profile.clearHistory")}
-              </button>
+        {/* Stats strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-line">
+          {[
+            { l: "Тестів", v: local?.quizzes.length ?? 0 },
+            { l: "Питань", v: overall?.totalQ ?? 0 },
+            { l: "Точність", v: overall && overall.totalQ ? `${Math.round(overall.accuracy * 100)}%` : "—" },
+            { l: "Активних предметів", v: local ? subjectsPlayed(local.quizzes).length : 0 },
+          ].map((s, i) => (
+            <div key={i} className={`px-6 py-4 ${i < 3 ? "border-r border-line" : ""} ${i < 2 ? "border-b sm:border-b-0 border-line" : ""}`}>
+              <div className="eyebrow">{s.l}</div>
+              <div className="font-mono text-2xl font-medium tracking-tighter2 mt-1">{s.v}</div>
             </div>
-            <ul className="divide-y divide-slate-200 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 overflow-hidden">
-              {local.quizzes.slice(0, 10).map((q, i) => (
-                <QuizHistoryRow key={i} q={q} questionMap={questionMap} />
-              ))}
-            </ul>
+          ))}
+        </div>
+
+        {/* Body */}
+        <div className="grid lg:grid-cols-[1.4fr_1fr] gap-7 px-6 sm:px-10 py-6">
+          {/* History */}
+          <section>
+            <div className="flex items-baseline justify-between mb-2.5">
+              <h2 className="text-[13px] font-medium">Історія сесій</h2>
+              <span className="text-[11px] text-ink-mute">останні 30</span>
+            </div>
+            {local && local.quizzes.length === 0 && (
+              <div className="panel p-10 text-center space-y-2">
+                <div className="text-[14px] text-ink-dim">Тестів поки немає.</div>
+                <Link href="/" className="text-[12px] text-cyan hover:underline">Обрати предмет →</Link>
+              </div>
+            )}
+            {local && local.quizzes.length > 0 && (
+              <div className="panel divide-y divide-line overflow-hidden">
+                {local.quizzes.slice(0, 30).map((q, i) => (
+                  <HistoryRow key={i} q={q} subj={subjMap.get(q.subject) ?? null} />
+                ))}
+              </div>
+            )}
           </section>
-        </>
-      )}
-    </main>
+
+          {/* Settings */}
+          <section className="space-y-6">
+            <div>
+              <h2 className="text-[13px] font-medium mb-2.5">Дані</h2>
+              <div className="panel p-3.5 space-y-3">
+                <div className="text-[12px] text-ink-dim leading-relaxed">
+                  Локальна історія: <span className="text-ink font-mono">{local?.quizzes.length ?? 0} сесій</span> на цьому пристрої.
+                </div>
+                <button
+                  onClick={reset}
+                  className="w-full px-3 py-2 border border-line rounded-md text-[12px] text-bad hover:bg-bad/[0.08] hover:border-bad/40 transition-colors"
+                >
+                  Очистити локальну історію
+                </button>
+              </div>
+            </div>
+
+            {!session && (
+              <div className="panel p-4 border-warn/30 bg-warn/[0.04]">
+                <div className="text-[13px] font-medium text-warn mb-1">Не увійшов</div>
+                <p className="text-[12px] text-ink-dim leading-relaxed">
+                  Статистика зберігається лише на цьому пристрої. Увійди, щоб синхронізувати між пристроями.
+                </p>
+                <Link href="/login" className="inline-block mt-3 px-3 py-1.5 rounded-md bg-cyan text-canvas text-[12px] font-semibold">
+                  Увійти →
+                </Link>
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+    </AppShell>
   );
 }
 
-function QuizHistoryRow({ q, questionMap }: { q: QuizResult; questionMap: Map<number, Question> }) {
-  const { t } = useT();
+function HistoryRow({ q, subj }: { q: QuizResult; subj: Subject | null }) {
   const [open, setOpen] = useState(false);
-  const pct = q.total ? Math.round((q.correct / q.total) * 100) : 0;
+  const acc = q.total ? Math.round((q.correct / q.total) * 100) : 0;
   const wrong = q.outcomes.filter((o) => !o.correct);
   const canExpand = q.outcomes.length > 0;
+  const tag = subj ? subj.name_uk.split(" ").map((w) => w[0]?.toUpperCase()).slice(0, 2).join("") : q.subject.slice(0, 2).toUpperCase();
 
   return (
-    <li>
+    <div>
       <button
-        type="button"
         onClick={() => canExpand && setOpen((v) => !v)}
-        className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
-        aria-expanded={open}
+        className="w-full grid grid-cols-[140px_38px_1fr_70px_24px] gap-3 items-center px-4 py-3 text-left hover:bg-surface transition-colors"
       >
-        <div className="flex-1 min-w-0">
-          <div className="text-sm">
-            <b className="tabular-nums">{q.correct}/{q.total}</b>
-            <span className="text-slate-500 dark:text-slate-400 ml-2 text-xs">{new Date(q.date).toLocaleString()}</span>
-          </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-            {q.categories.length === ALL_CATEGORIES.length ? t("profile.allTopics") : q.categories.map((c) => shortLabel(c)).join(", ")}
-          </div>
-        </div>
-        {wrong.length > 0 && (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/40 tabular-nums shrink-0">
-            {wrong.length} {t("profile.wrong")}
-          </span>
-        )}
-        <span className={"text-sm font-semibold tabular-nums shrink-0 " + (pct >= 80 ? "text-emerald-600 dark:text-emerald-400" : pct >= 50 ? "text-blue-600 dark:text-sky-400" : "text-amber-600 dark:text-amber-400")}>
-          {pct}%
+        <span className="font-mono text-[11px] text-ink-mute">{new Date(q.date).toLocaleString()}</span>
+        <span className="font-mono text-[10px] font-semibold text-cyan px-1.5 py-0.5 bg-cyan-soft rounded inline-block text-center w-fit">
+          {tag}
         </span>
-        <span className="text-slate-400 dark:text-slate-500 shrink-0" aria-hidden>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={"transition-transform " + (open ? "rotate-180" : "")}><polyline points="6 9 12 15 18 9" /></svg>
+        <span className="text-[12px]">
+          {q.total} питань · {wrong.length} помилок
         </span>
+        <span className={`font-mono text-[12px] text-right tabular-nums ${acc < 60 ? "text-warn" : "text-good"}`}>{acc}%</span>
+        <span className={"text-ink-mute text-[11px] transition-transform " + (open ? "rotate-180" : "")}>▾</span>
       </button>
-
-      {open && <QuizHistoryDetails q={q} wrongCount={wrong.length} questionMap={questionMap} />}
-    </li>
-  );
-}
-
-function QuizHistoryDetails({ q, wrongCount, questionMap }: { q: QuizResult; wrongCount: number; questionMap: Map<number, Question> }) {
-  const { t } = useT();
-  const [wrongOnly, setWrongOnly] = useState(false);
-  const list = wrongOnly ? q.outcomes.filter((o) => !o.correct) : q.outcomes;
-
-  return (
-    <div className="px-4 pb-4 space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-xs text-slate-500 dark:text-slate-400">
-          {t("profile.wrongOf", { w: wrongCount, n: q.total })}
+      {open && wrong.length > 0 && (
+        <div className="border-t border-line bg-canvas px-4 py-3">
+          <div className="eyebrow mb-2">Помилки</div>
+          {wrong.slice(0, 5).map((w, j) => (
+            <div key={j} className="flex items-center gap-2.5 py-1.5 text-[12px]">
+              <span className="font-mono text-[11px] text-ink-mute w-9">#{w.number}</span>
+              <span className="text-ink-dim flex-1 truncate">Питання #{w.number}</span>
+              <span className="text-bad text-[11px]">помилка</span>
+            </div>
+          ))}
         </div>
-        {wrongCount > 0 && wrongCount < q.total && (
-          <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => setWrongOnly(false)}
-              className={"px-2.5 py-1 transition-colors " + (!wrongOnly ? "bg-blue-600 text-white dark:bg-sky-500 dark:text-slate-950" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800")}
-              aria-pressed={!wrongOnly}
-            >
-              {t("profile.showAll")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setWrongOnly(true)}
-              className={"px-2.5 py-1 transition-colors " + (wrongOnly ? "bg-blue-600 text-white dark:bg-sky-500 dark:text-slate-950" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800")}
-              aria-pressed={wrongOnly}
-            >
-              {t("profile.wrongOnly")}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {wrongCount === 0 && (
-        <div className="text-sm text-emerald-600 dark:text-emerald-400">{t("profile.noWrongInQuiz")}</div>
       )}
-
-      <ol className="space-y-2">
-        {list.map((o, j) => {
-          const question = questionMap.get(o.number);
-          if (!question) {
-            return (
-              <li key={j} className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 text-xs text-slate-500">
-                #{o.number} — question not found
-              </li>
-            );
-          }
-          return (
-            <li key={j} className={"rounded-lg border p-3 space-y-2 " + (o.correct ? "border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-red-200 dark:border-red-500/30 bg-red-50/40 dark:bg-red-950/20")}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {effectiveCategories(question.categories).map((c) => (
-                    <span key={c} className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-medium px-2 py-0.5 rounded border ${categoryBadgeClass(c)}`}>
-                      <span className={`size-1.5 rounded-full ${categoryDotClass(c)}`} />
-                      {shortLabel(c)}
-                    </span>
-                  ))}
-                </div>
-                <span className={"text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full " + (o.correct ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300")}>
-                  {o.correct ? t("profile.statusCorrect") : t("profile.statusWrong")}
-                </span>
-              </div>
-              <div className="text-sm">
-                <span className="text-xs text-slate-500 dark:text-slate-500 mr-2 tabular-nums">#{question.number}</span>
-                {question.text}
-              </div>
-              <ol className="space-y-1 text-sm">
-                {question.options.map((opt, k) => {
-                  const isCorrect = question.correct_indices.includes(k);
-                  const wasChosen = o.chosen?.includes(k);
-                  let cls = "border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40";
-                  if (isCorrect) cls = "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-500/60";
-                  else if (wasChosen) cls = "border-red-500 bg-red-50 dark:bg-red-950/40 dark:border-red-500/60";
-                  return (
-                    <li key={k} className={"flex items-start gap-2.5 rounded-lg border px-3 py-1.5 " + cls}>
-                      <span className="opacity-50 w-4 shrink-0 text-xs pt-0.5">{letter(k)}.</span>
-                      <span className="flex-1">{opt}</span>
-                      {isCorrect && <span className="text-xs text-emerald-600 dark:text-emerald-400 shrink-0">✓</span>}
-                      {!isCorrect && wasChosen && <span className="text-xs text-red-600 dark:text-red-400 shrink-0">✕</span>}
-                    </li>
-                  );
-                })}
-              </ol>
-              <AnswerSummary chosen={o.chosen} correctIndices={question.correct_indices} />
-            </li>
-          );
-        })}
-      </ol>
-    </div>
-  );
-}
-
-function Stat({ label, value, tone }: { label: string; value: string | number; tone?: "good" | "ok" | "low" }) {
-  const toneCls =
-    tone === "good" ? "text-emerald-600 dark:text-emerald-400"
-    : tone === "low" ? "text-amber-600 dark:text-amber-400"
-    : tone === "ok" ? "text-blue-600 dark:text-sky-400"
-    : "";
-  return (
-    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5">
-      <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">{label}</div>
-      <div className={`text-2xl sm:text-3xl font-semibold tabular-nums mt-1 ${toneCls}`}>{value}</div>
     </div>
   );
 }

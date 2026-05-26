@@ -1,5 +1,5 @@
 {
-  "name": "do-helper",
+  "name": "oistudy",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,9 +9,11 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "parse": "node scripts/parse-tests.mjs",
-    "seed": "node --env-file=.env.local scripts/seed.mjs",
-    "seed:upsert": "node --env-file=.env.local scripts/seed.mjs --only-upsert",
-    "seed:categorize": "node --env-file=.env.local scripts/seed.mjs --only-categorize"
+    "seed": "node --env-file=.env.local scripts/seed.mjs --subject do",
+    "seed:upsert": "node --env-file=.env.local scripts/seed.mjs --subject do --only-upsert",
+    "seed:categorize": "node --env-file=.env.local scripts/seed.mjs --subject do --only-categorize",
+    "explain": "node --env-file=.env.local scripts/explain.mjs --subject do",
+    "explain:redo": "node --env-file=.env.local scripts/explain.mjs --subject do --redo"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
