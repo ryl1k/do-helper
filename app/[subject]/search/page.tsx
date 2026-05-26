@@ -33,6 +33,11 @@ function CatalogInner() {
   const [active, setActive] = useState<Set<string>>(initialCats);
   const [shown, setShown] = useState(PAGE_SIZE);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Answers are hidden by default so the row works as a self-test surface.
+  // Toggling a row's id in here reveals the correct option + per-option explanations.
+  const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  // Global toggle: "show answers" affects every expanded row at once.
+  const [revealAll, setRevealAll] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -94,6 +99,13 @@ function CatalogInner() {
       return next;
     });
   }
+  function toggleRowReveal(id: string) {
+    setRevealed((cur) => {
+      const next = new Set(cur);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   return (
     <AppShell active="catalog" subject={subject} crumbs={[{ label: "Каталог" }]}>
@@ -142,13 +154,27 @@ function CatalogInner() {
           </div>
         )}
 
-        {/* Counts row */}
-        <div className="px-6 sm:px-7 py-2 border-b border-line text-[11px] text-ink-mute flex justify-between">
+        {/* Counts + global show-answers toggle */}
+        <div className="px-6 sm:px-7 py-2 border-b border-line text-[11px] text-ink-mute flex justify-between items-center gap-3">
           <span>
             {filtered.length} {filtered.length === 1 ? "питання" : "питань"}
             {active.size > 0 && <> · фільтр: <span className="text-ink-dim">{active.size} {active.size === 1 ? "тема" : "теми"}</span></>}
           </span>
-          {err && <span className="text-bad">{err}</span>}
+          <div className="flex items-center gap-3">
+            {err && <span className="text-bad">{err}</span>}
+            <button
+              onClick={() => setRevealAll((v) => !v)}
+              className={
+                "px-2.5 py-1 rounded border text-[11px] transition-colors " +
+                (revealAll
+                  ? "bg-cyan-soft text-cyan border-cyan/40"
+                  : "border-line text-ink-dim hover:text-ink hover:border-lineStrong")
+              }
+              title="Показати/сховати відповіді в усіх розгорнутих питаннях"
+            >
+              {revealAll ? "сховати відповіді" : "показати відповіді"}
+            </button>
+          </div>
         </div>
 
         {/* Rows */}
@@ -164,7 +190,9 @@ function CatalogInner() {
               q={q}
               topics={topics}
               open={expanded.has(q.id)}
+              revealAnswers={revealAll || revealed.has(q.id)}
               onToggle={() => toggleExpand(q.id)}
+              onToggleReveal={() => toggleRowReveal(q.id)}
             />
           ))}
           {hasMore && (
@@ -185,11 +213,19 @@ function CatalogInner() {
 }
 
 function CatalogRow({
-  q, topics, open, onToggle,
-}: { q: Question; topics: SubjectTopics | null; open: boolean; onToggle: () => void }) {
+  q, topics, open, revealAnswers, onToggle, onToggleReveal,
+}: {
+  q: Question;
+  topics: SubjectTopics | null;
+  open: boolean;
+  revealAnswers: boolean;
+  onToggle: () => void;
+  onToggleReveal: () => void;
+}) {
   const cats = effectiveTopicSlugs(q.categories);
   const noAnswer = q.correct_indices.length === 0;
   const multi = q.correct_indices.length > 1;
+  const hasExplanations = !!q.explanations && q.explanations.some((e) => e?.trim());
 
   return (
     <div className="border-b border-line">
@@ -221,25 +257,45 @@ function CatalogRow({
         <div className="px-6 sm:px-7 pb-4 grid grid-cols-[40px_1fr] gap-4">
           <div />
           <div>
+            {/* Per-row reveal toggle: lets the user self-test, then peek. */}
+            {!noAnswer && (
+              <div className="flex items-center justify-end mb-2">
+                <button
+                  onClick={onToggleReveal}
+                  className={
+                    "px-2.5 py-1 rounded border text-[11px] inline-flex items-center gap-1.5 transition-colors " +
+                    (revealAnswers
+                      ? "bg-cyan-soft text-cyan border-cyan/40"
+                      : "border-line text-ink-dim hover:text-ink hover:border-lineStrong")
+                  }
+                  aria-pressed={revealAnswers}
+                >
+                  <span aria-hidden>{revealAnswers ? "👁" : "👁‍🗨"}</span>
+                  {revealAnswers ? "сховати відповідь" : "показати відповідь"}
+                </button>
+              </div>
+            )}
+
             <ul className="space-y-1.5">
               {q.options.map((o, j) => {
                 const correct = q.correct_indices.includes(j);
+                const showCorrect = revealAnswers && correct;
                 return (
                   <li
                     key={j}
                     className={
                       "flex items-start gap-2.5 rounded-md border px-3 py-2 text-[13px] " +
-                      (correct ? "border-good bg-good/[0.06]" : "border-line bg-surface")
+                      (showCorrect ? "border-good bg-good/[0.06]" : "border-line bg-surface")
                     }
                   >
-                    <span className={"w-4 text-[11px] " + (correct ? "text-good font-semibold" : "text-ink-mute")}>{letter(j)}</span>
+                    <span className={"w-4 text-[11px] " + (showCorrect ? "text-good font-semibold" : "text-ink-mute")}>{letter(j)}</span>
                     <span className="flex-1">{o}</span>
-                    {correct && <span className="text-good text-[11px] shrink-0">✓</span>}
+                    {showCorrect && <span className="text-good text-[11px] shrink-0">✓</span>}
                   </li>
                 );
               })}
             </ul>
-            {q.explanations && q.explanations.some((e) => e?.trim()) && (
+            {revealAnswers && hasExplanations && (
               <div className="mt-3 space-y-1">
                 <div className="text-[10px] uppercase tracking-wider text-cyan font-semibold">Пояснення</div>
                 <ol className="space-y-1.5 mt-1">
