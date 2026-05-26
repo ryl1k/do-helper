@@ -148,7 +148,7 @@ export default function AdminTopicsPage() {
         )}
       </div>
 
-      <aside className="border-t lg:border-t-0 lg:border-l border-line p-6 bg-surface">
+      <aside className="border-t lg:border-t-0 lg:border-l border-line p-6 bg-surface lg:sticky lg:top-0 lg:self-start lg:max-h-[calc(100vh-44px)] lg:overflow-y-auto">
         {editing ? (
           <TopicEditor
             topic={editing}
