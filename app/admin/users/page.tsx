@@ -41,8 +41,8 @@ export default function AdminUsersPage() {
           {rows.map((u) => (
             <div key={u.id} className="grid grid-cols-[1fr_140px_80px_100px] gap-3 px-4 py-3 items-center">
               <span className="text-[13px] truncate">{u.display_name ?? <span className="text-ink-mute italic">без імені</span>}</span>
-              <span className="font-mono text-[11px] text-ink-mute">{new Date(u.created_at).toLocaleDateString()}</span>
-              <span className={"font-mono text-[11px] " + (u.is_admin ? "text-cyan" : "text-ink-mute")}>{u.is_admin ? "так" : "—"}</span>
+              <span className="text-[11px] text-ink-mute">{new Date(u.created_at).toLocaleDateString()}</span>
+              <span className={"text-[11px] " + (u.is_admin ? "text-cyan" : "text-ink-mute")}>{u.is_admin ? "так" : "—"}</span>
               <button
                 onClick={() => toggleAdmin(u)}
                 className="text-[11px] text-ink-dim hover:text-ink underline justify-self-end"

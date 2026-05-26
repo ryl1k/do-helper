@@ -121,7 +121,7 @@ export default function AdminQuestionsPage() {
                   onClick={() => setEditing(q)}
                   className="grid grid-cols-[40px_1fr_140px] gap-3 px-4 py-3 items-center hover:bg-surface text-left transition-colors"
                 >
-                  <span className="font-mono text-[11px] text-ink-mute">#{q.number}</span>
+                  <span className="text-[11px] text-ink-mute">#{q.number}</span>
                   <span className="text-[13px] truncate">{q.text}</span>
                   {topics && firstCat && (
                     <span className="text-[11px] text-ink-dim inline-flex items-center gap-1.5">
@@ -221,7 +221,7 @@ function QuestionEditor({
               <div key={i} className={"flex items-center gap-2 px-2 py-1.5 rounded-md border " + (correct ? "border-good bg-good/[0.06]" : "border-line bg-canvas")}>
                 <button
                   onClick={() => toggleCorrect(i)}
-                  className={"size-5 rounded shrink-0 flex items-center justify-center font-mono text-[10px] " + (correct ? "bg-good text-canvas" : "bg-surface2 text-ink-dim")}
+                  className={"size-5 rounded shrink-0 flex items-center justify-center text-[10px] " + (correct ? "bg-good text-canvas" : "bg-surface2 text-ink-dim")}
                 >
                   {String.fromCharCode(0x430 + i)}
                 </button>

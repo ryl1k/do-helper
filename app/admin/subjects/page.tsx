@@ -101,12 +101,12 @@ export default function AdminSubjectsPage() {
                   onClick={() => setEditing(r)}
                   className="grid grid-cols-[40px_1fr_120px_90px_24px] gap-3 px-4 py-3 items-center hover:bg-surface transition-colors text-left"
                 >
-                  <span className={`size-6 rounded ${a.cta} ${a.ctaText} flex items-center justify-center font-mono text-[10px] font-semibold`}>
+                  <span className={`size-6 rounded ${a.cta} ${a.ctaText} flex items-center justify-center text-[10px] font-semibold`}>
                     {r.name_uk.slice(0, 2).toUpperCase()}
                   </span>
                   <span className="text-[13px] font-medium truncate">{r.name_uk}</span>
-                  <span className="font-mono text-[11px] text-ink-mute">{r.slug}</span>
-                  <span className="font-mono text-[11px] text-ink-mute">—</span>
+                  <span className="text-[11px] text-ink-mute">{r.slug}</span>
+                  <span className="text-[11px] text-ink-mute">—</span>
                   <span className="text-ink-mute">›</span>
                 </button>
               );

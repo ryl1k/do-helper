@@ -89,7 +89,7 @@ export default function ImportPage() {
       <p className="text-[13px] text-ink-dim mt-1 max-w-2xl leading-relaxed">
         Встав сирий текст з питаннями — Groq витягне структуровані MCQ. Підтримує Moodle-формат,
         нумеровані списки, довільний текст. Питання без явно позначеної відповіді отримають порожній
-        <span className="font-mono"> correct_indices: []</span> — заповниш потім вручну.
+        <span className="text-cyan"> correct_indices: []</span> — заповниш потім вручну.
       </p>
 
       {err && <div className="mt-4 text-bad text-sm">{err}</div>}
@@ -118,7 +118,7 @@ export default function ImportPage() {
           onChange={(e) => setRaw(e.target.value)}
           rows={10}
           placeholder={`1. Що таке X?\n   а) ...\n   б) ... *правильна*\n   в) ...\n\n2. Який метод ...`}
-          className="w-full bg-surface border border-line rounded-md px-3 py-2.5 text-[13px] font-mono resize-y outline-none focus:border-cyan"
+          className="w-full bg-surface border border-line rounded-md px-3 py-2.5 text-[13px] resize-y outline-none focus:border-cyan"
         />
         <div className="mt-2 flex items-center gap-2.5">
           <button
@@ -194,7 +194,7 @@ function ParsedRow({ q, selected, onToggle }: { q: Parsed; selected: boolean; on
             const correct = q.correct_indices.includes(j);
             return (
               <li key={j} className={"text-[12px] flex gap-2 " + (correct ? "text-good" : "text-ink-dim")}>
-                <span className="font-mono text-ink-mute w-4">{String.fromCharCode(0x430 + j)}</span>
+                <span className="text-ink-mute w-4">{String.fromCharCode(0x430 + j)}</span>
                 <span>{o}</span>
                 {correct && <span className="text-good">✓</span>}
               </li>

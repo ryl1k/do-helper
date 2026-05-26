@@ -446,7 +446,7 @@ function PlayingView({
           <div className="h-full bg-cyan transition-[width] duration-300" style={{ width: `${(idx / pool.length) * 100}%` }} />
         </div>
         <div className="flex-1" />
-        <div className="font-mono text-[12px] text-ink-dim tabular-nums" title="Тривалість сесії">{formatMMSS(elapsedSec)}</div>
+        <div className="text-[12px] text-ink-dim tabular-nums" title="Тривалість сесії">{formatMMSS(elapsedSec)}</div>
         <Link href={`/${subject}`} className="px-3 py-1.5 border border-line rounded-md text-[11px] text-ink-dim hover:text-ink hover:border-lineStrong">
           Завершити
         </Link>

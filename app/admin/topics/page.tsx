@@ -134,13 +134,13 @@ export default function AdminTopicsPage() {
                 onClick={() => setEditing(t)}
                 className="grid grid-cols-[40px_1fr_120px_60px_24px] gap-3 px-4 py-3 items-center hover:bg-surface transition-colors text-left"
               >
-                <span className="font-mono text-[11px] text-ink-mute">{i + 1}</span>
+                <span className="text-[11px] text-ink-mute">{i + 1}</span>
                 <span className="text-[13px] flex items-center gap-2">
                   <span className={`size-2 rounded-full ${COLOR_BG[t.color_token] ?? "bg-slate-500"}`} />
                   <span className="truncate">{t.name}</span>
                 </span>
-                <span className="font-mono text-[11px] text-ink-mute">{t.slug}</span>
-                <span className="font-mono text-[11px] text-ink-mute">{t.color_token}</span>
+                <span className="text-[11px] text-ink-mute">{t.slug}</span>
+                <span className="text-[11px] text-ink-mute">{t.color_token}</span>
                 <span className="text-ink-mute">›</span>
               </button>
             ))}

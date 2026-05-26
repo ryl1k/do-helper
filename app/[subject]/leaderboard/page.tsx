@@ -53,11 +53,11 @@ export default function LeaderboardPage() {
                 const acc = r.total > 0 ? Math.round((r.correct / r.total) * 100) : 0;
                 return (
                   <div key={r.id} className="grid grid-cols-[40px_1fr_80px_80px_80px] gap-3 px-4 py-2.5 items-center">
-                    <span className="font-mono text-[11px] text-ink-mute">{i + 1}</span>
+                    <span className="text-[11px] text-ink-mute">{i + 1}</span>
                     <span className="text-[13px] truncate">{r.display_name}</span>
-                    <span className="font-mono text-[12px] text-ink-dim">{r.correct}</span>
-                    <span className="font-mono text-[12px] text-ink-dim">{r.total}</span>
-                    <span className="font-mono text-[12px] text-cyan font-medium">{acc}%</span>
+                    <span className="text-[12px] text-ink-dim">{r.correct}</span>
+                    <span className="text-[12px] text-ink-dim">{r.total}</span>
+                    <span className="text-[12px] text-cyan font-medium">{acc}%</span>
                   </div>
                 );
               })}
