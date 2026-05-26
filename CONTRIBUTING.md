@@ -4,7 +4,7 @@ Thanks for wanting to help. This is a small student project; PRs are welcome.
 
 ## Quick links
 
-- Bugs / feature requests: https://github.com/ryl1k/do-helper/issues
+- Bugs / feature requests: https://github.com/ryl1k/oistudy/issues
 - Telegram: @ryl1k
 
 ## Dev setup
@@ -12,8 +12,8 @@ Thanks for wanting to help. This is a small student project; PRs are welcome.
 Same as [README.md → Setup](README.md#setup). The short version:
 
 ```bash
-git clone https://github.com/ryl1k/do-helper.git
-cd do-helper
+git clone https://github.com/ryl1k/oistudy.git
+cd oistudy
 npm install
 cp .env.example .env.local       # fill in your Supabase + Groq keys
 npm run dev

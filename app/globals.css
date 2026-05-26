@@ -2,32 +2,119 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: light dark;
+@layer base {
+  html, body {
+    height: 100%;
+    background: #0a0b0d;
+    color: #e6e8ec;
+  }
+  body {
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
+  /* Selection — soft accent. */
+  ::selection {
+    background: rgba(94, 182, 255, 0.25);
+    color: #fff;
+  }
+  /* Scrollbars match the surface palette so they read as part of the chrome. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+  }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    border-radius: 999px;
+  }
+  *::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.16); background-clip: padding-box; }
+  *::-webkit-scrollbar-track { background: transparent; }
+
+  /* Inputs/textareas: reset the default light styling. */
+  input, textarea, select, button {
+    font-family: inherit;
+  }
+  input::placeholder, textarea::placeholder { color: #6b7079; }
 }
 
-html, body { height: 100%; }
-
-body {
-  @apply bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100;
-  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-  font-feature-settings: "ss01", "cv11";
+@layer base {
+  /* Hide the native spin buttons on number inputs — they render white on dark UI. */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] { -moz-appearance: textfield; }
 }
 
-/* Make focus rings consistent and on-brand */
-*:focus-visible {
-  @apply outline-none ring-2 ring-blue-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950;
-}
+@layer components {
+  /* Range slider with a visible draggable thumb on the dark palette. */
+  input[type="range"].slider {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    height: 20px;
+    cursor: pointer;
+  }
+  input[type="range"].slider::-webkit-slider-runnable-track {
+    height: 4px; background: transparent;
+  }
+  input[type="range"].slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px; height: 16px; border-radius: 999px;
+    background: #e6e8ec;
+    border: 2px solid #5eb6ff;
+    box-shadow: 0 0 0 3px rgba(94,182,255,0.18);
+    margin-top: -6px;
+    cursor: grab;
+  }
+  input[type="range"].slider::-webkit-slider-thumb:active { cursor: grabbing; }
+  input[type="range"].slider::-moz-range-track { height: 4px; background: transparent; border: 0; }
+  input[type="range"].slider::-moz-range-thumb {
+    width: 16px; height: 16px; border-radius: 999px;
+    background: #e6e8ec;
+    border: 2px solid #5eb6ff;
+    box-shadow: 0 0 0 3px rgba(94,182,255,0.18);
+    cursor: grab;
+  }
+  input[type="range"].slider::-moz-range-thumb:active { cursor: grabbing; }
 
-/* Selection */
-::selection {
-  @apply bg-blue-200 text-blue-900 dark:bg-blue-500/40 dark:text-white;
-}
+  /* Keyboard shortcut chip — used liberally in topbar / CTAs. */
+  .kbd {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 5px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.08);
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 10px; font-weight: 500; line-height: 1;
+  }
+  .kbd-inverse {
+    background: rgba(0,0,0,0.18);
+    border-color: transparent;
+    color: rgba(0,0,0,0.7);
+  }
 
-/* Subtle scrollbars in dark */
-.dark ::-webkit-scrollbar { width: 10px; height: 10px; }
-.dark ::-webkit-scrollbar-thumb { background: rgb(30 41 59); border-radius: 8px; }
-.dark ::-webkit-scrollbar-thumb:hover { background: rgb(51 65 85); }
+  /* Section eyebrow — uppercase tracking labels above section headers. */
+  .eyebrow {
+    font-size: 10px;
+    color: #6b7079;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+
+  /* Card / surface containers used throughout. */
+  .panel {
+    background: #111315;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+  }
+}

@@ -1,4 +1,4 @@
--- do-helper schema (quiz-tool shape).
+-- oistudy schema (quiz-tool shape).
 -- Source of truth = the parsed test bank (examples/parsed_tests.txt, 520 questions
 -- with correct answers already marked). Questions are seeded via scripts/seed.mjs.
 --
@@ -25,6 +25,10 @@ create table public.questions (
 
 create index idx_questions_number on public.questions (number);
 create index idx_questions_categories on public.questions using gin (categories);
+
+-- Per-option AI-generated explanations. Parallel array to options:
+-- explanations[i] explains options[i]. Empty string allowed where ungenerated.
+alter table public.questions add column if not exists explanations text[] not null default '{}';
 
 -- =========================================================================
 -- Profiles, attempts, and aggregate views (auth + stats collection).
