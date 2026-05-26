@@ -4,12 +4,17 @@ import Link from "next/link";
 import { AppShell } from "@/components/shell/AppShell";
 import { loadSubjects, subjectInitials, type Subject } from "@/lib/subjects";
 import { loadProfile, summarize, type QuizResult } from "@/lib/stats";
+import { loadTopics } from "@/lib/topics";
 import { useSession } from "@/lib/auth";
 
 export default function HomePage() {
   const { session } = useSession();
   const [subjects, setSubjects] = useState<Subject[] | null>(null);
   const [history, setHistory] = useState<QuizResult[]>([]);
+  // (subjectSlug -> Map<topicSlug, displayName>). Filled lazily for every subject
+  // that appears in history so the weak-topic list can show human-readable names
+  // instead of raw slugs.
+  const [topicNames, setTopicNames] = useState<Map<string, Map<string, string>>>(new Map());
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -17,18 +22,36 @@ export default function HomePage() {
     setHistory(loadProfile().quizzes);
   }, []);
 
+  useEffect(() => {
+    const subjSlugs = new Set(history.map((h) => h.subject).filter(Boolean));
+    if (subjSlugs.size === 0) return;
+    Promise.all(
+      [...subjSlugs].map(async (slug) => {
+        try {
+          const t = await loadTopics(slug);
+          const m = new Map<string, string>();
+          for (const tp of t.topics) m.set(tp.slug, (tp.short_name?.trim() || tp.name));
+          return [slug, m] as const;
+        } catch {
+          return [slug, new Map<string, string>()] as const;
+        }
+      }),
+    ).then((entries) => setTopicNames(new Map(entries)));
+  }, [history]);
+
   return (
     <AppShell active="home">
-      <HomeContent subjects={subjects} history={history} err={err} session={session} />
+      <HomeContent subjects={subjects} history={history} topicNames={topicNames} err={err} session={session} />
     </AppShell>
   );
 }
 
 function HomeContent({
-  subjects, history, err, session,
+  subjects, history, topicNames, err, session,
 }: {
   subjects: Subject[] | null;
   history: QuizResult[];
+  topicNames: Map<string, Map<string, string>>;
   err: string | null;
   session: { user?: { email?: string } | null } | null;
 }) {
@@ -38,7 +61,7 @@ function HomeContent({
     [subjects],
   );
   const streak = useMemo(() => computeStreak(history), [history]);
-  const weakTopics = useMemo(() => topWeakTopics(history, 3), [history]);
+  const weakTopics = useMemo(() => topWeakTopics(history, topicNames, 3), [history, topicNames]);
 
   const userName = session?.user?.email?.split("@")[0] ?? "";
   const greetingName = userName ? `, ${userName.charAt(0).toUpperCase() + userName.slice(1)}` : "";
@@ -177,7 +200,7 @@ function HomeContent({
                         href={`/${target}/quiz?weak=1`}
                         dot="bg-warn"
                         label="Слабкі місця"
-                        sub={weakTopics.length ? weakTopics.map((w) => w.cat).slice(0, 2).join(", ") : "Поки немає слабких тем"}
+                        sub={weakTopics.length ? weakTopics.map((w) => w.label).slice(0, 2).join(", ") : "Поки немає слабких тем"}
                       />
                     </>
                   );
@@ -209,13 +232,13 @@ function HomeContent({
               </div>
             )}
             {weakTopics.map((w) => (
-              <div key={w.cat} className="mb-2.5">
+              <div key={`${w.subjectSlug}/${w.topicSlug}`} className="mb-2.5">
                 <div className="flex items-center justify-between text-[12px] mb-1">
-                  <span className="flex items-center gap-1.5">
-                    <span className="size-1.5 rounded-full bg-violet" />
-                    {w.cat}
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className="size-1.5 rounded-full bg-violet shrink-0" />
+                    <span className="truncate">{w.label}</span>
                   </span>
-                  <span className="text-warn">{Math.round(w.acc * 100)}%</span>
+                  <span className="text-warn tabular-nums shrink-0">{Math.round(w.acc * 100)}%</span>
                 </div>
                 <div className="h-[3px] rounded-full bg-white/[0.06] overflow-hidden">
                   <div className="h-full bg-warn opacity-70" style={{ width: `${w.acc * 100}%` }} />
@@ -327,13 +350,51 @@ function computeStreak(history: QuizResult[]): number {
   return n;
 }
 
-// Aggregate weakest categories across all subjects from local history.
-function topWeakTopics(history: QuizResult[], limit: number): { cat: string; acc: number; total: number }[] {
-  const s = summarize(history);
-  const out = Object.entries(s.perCat)
-    .map(([cat, v]) => ({ cat, total: v.total, correct: v.correct, acc: v.total ? v.correct / v.total : 0 }))
+// Aggregate weakest topics across subjects. Keyed by (subject, topic) so the
+// same slug under different subjects doesn't collide. `topicNames` resolves the
+// slug to the human-readable name from the subject's topic list — falling back
+// to the slug if the topic table for that subject isn't loaded yet.
+interface WeakTopic {
+  subjectSlug: string;
+  topicSlug: string;
+  label: string;
+  total: number;
+  correct: number;
+  acc: number;
+}
+
+function topWeakTopics(
+  history: QuizResult[],
+  topicNames: Map<string, Map<string, string>>,
+  limit: number,
+): WeakTopic[] {
+  const per = new Map<string, WeakTopic>();
+  for (const q of history) {
+    const subj = q.subject;
+    const subMap = topicNames.get(subj);
+    for (const o of q.outcomes) {
+      for (const c of o.categories) {
+        const key = `${subj}/${c}`;
+        const cur = per.get(key);
+        if (cur) {
+          cur.total += 1;
+          if (o.correct) cur.correct += 1;
+        } else {
+          per.set(key, {
+            subjectSlug: subj,
+            topicSlug: c,
+            label: subMap?.get(c) ?? c,
+            total: 1,
+            correct: o.correct ? 1 : 0,
+            acc: 0,
+          });
+        }
+      }
+    }
+  }
+  return [...per.values()]
+    .map((x) => ({ ...x, acc: x.total ? x.correct / x.total : 0 }))
     .filter((x) => x.total >= 3 && x.acc < 0.7)
     .sort((a, b) => a.acc - b.acc || b.total - a.total)
     .slice(0, limit);
-  return out;
 }
