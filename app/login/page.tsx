@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Kbd } from "@/components/shell/Kbd";
 import { Logo } from "@/components/shell/Logo";
 import { signInWithGoogle, signInWithMagicLink, useSession } from "@/lib/auth";
 
@@ -71,7 +70,6 @@ export default function LoginPage() {
                 className="mt-2.5 w-full py-2.5 rounded-md bg-cyan text-canvas text-[13px] font-semibold flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-cyan/90 transition-colors"
               >
                 {busy ? "Надсилаємо…" : "Надіслати magic-link"}
-                {!busy && <Kbd inverse>↵</Kbd>}
               </button>
             </form>
 

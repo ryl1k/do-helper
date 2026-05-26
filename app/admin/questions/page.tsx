@@ -198,7 +198,7 @@ function QuestionEditor({
         <div>
           <div className="eyebrow">Редагування · #{row.number}</div>
         </div>
-        <button onClick={onCancel} className="text-[11px] text-ink-mute hover:text-ink">esc</button>
+        <button onClick={onCancel} className="text-[11px] text-ink-mute hover:text-ink">закрити</button>
       </div>
       <div>
         <div className="eyebrow mb-1.5">Питання</div>

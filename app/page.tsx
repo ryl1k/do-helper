@@ -2,7 +2,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/shell/AppShell";
-import { Kbd } from "@/components/shell/Kbd";
 import { loadSubjects, subjectInitials, type Subject } from "@/lib/subjects";
 import { loadProfile, summarize, type QuizResult } from "@/lib/stats";
 import { useSession } from "@/lib/auth";
@@ -86,7 +85,7 @@ function HomeContent({
             className={`px-6 py-4 ${i < stats.length - 1 ? "border-r border-line" : ""} ${i < 2 ? "border-b sm:border-b-0 border-line" : ""}`}
           >
             <div className="eyebrow">{s.l}</div>
-            <div className={`font-mono text-2xl font-medium tracking-tighter2 mt-1 ${s.warn ? "text-warn" : "text-ink"}`}>
+            <div className={`text-2xl font-medium tracking-tighter2 mt-1 ${s.warn ? "text-warn" : "text-ink"}`}>
               {s.v}
             </div>
             <div className={`text-[11px] mt-0.5 ${s.up ? "text-good" : "text-ink-mute"}`}>{s.s}</div>
@@ -121,7 +120,7 @@ function HomeContent({
                       className="grid grid-cols-[32px_1fr_auto_auto_auto] gap-3.5 items-center px-4 py-3.5 hover:bg-surface transition-colors group"
                     >
                       <div
-                        className={`size-7 rounded-md font-mono text-[11px] font-bold flex items-center justify-center ${
+                        className={`size-7 rounded-md text-[11px] font-bold flex items-center justify-center ${
                           empty
                             ? "bg-surface2 text-ink-mute"
                             : "text-canvas"
@@ -139,14 +138,14 @@ function HomeContent({
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-ink-mute mt-0.5 font-mono">
+                        <div className="text-[11px] text-ink-mute mt-0.5">
                           {s.question_count} питань · {s.topic_count} тем
                         </div>
                       </div>
-                      <div className={`font-mono text-[12px] tabular-nums w-20 text-right ${empty ? "text-ink-mute" : "text-ink"}`}>
+                      <div className={`text-[12px] tabular-nums w-20 text-right ${empty ? "text-ink-mute" : "text-ink"}`}>
                         {empty ? "—" : `${done}/${s.question_count}`}
                       </div>
-                      <div className={`font-mono text-[12px] tabular-nums w-14 text-right ${empty ? "text-ink-mute" : "text-cyan"}`}>
+                      <div className={`text-[12px] tabular-nums w-14 text-right ${empty ? "text-ink-mute" : "text-cyan"}`}>
                         {empty ? "—" : `${acc}%`}
                       </div>
                       <div className="text-[11px] text-ink-dim flex items-center gap-1.5 w-[100px] justify-end">
@@ -193,10 +192,10 @@ function HomeContent({
           <section>
             <div className="flex items-baseline justify-between mb-3">
               <h2 className="text-[13px] font-medium">Активність</h2>
-              <span className="font-mono text-[11px] text-ink-mute">Останні 12 тижнів</span>
+              <span className="text-[11px] text-ink-mute">Останні 12 тижнів</span>
             </div>
             <Heatmap quizzes={history} />
-            <div className="font-mono text-[11px] text-ink-mute mt-2 flex justify-between">
+            <div className="text-[11px] text-ink-mute mt-2 flex justify-between">
               <span>{history.length} {history.length === 1 ? "сесія" : "сесій"}</span>
               <span>{overall.totalQ.toLocaleString()} питань</span>
             </div>
@@ -216,7 +215,7 @@ function HomeContent({
                     <span className="size-1.5 rounded-full bg-violet" />
                     {w.cat}
                   </span>
-                  <span className="font-mono text-warn">{Math.round(w.acc * 100)}%</span>
+                  <span className="text-warn">{Math.round(w.acc * 100)}%</span>
                 </div>
                 <div className="h-[3px] rounded-full bg-white/[0.06] overflow-hidden">
                   <div className="h-full bg-warn opacity-70" style={{ width: `${w.acc * 100}%` }} />
@@ -226,10 +225,9 @@ function HomeContent({
             {weakTopics.length > 0 && (
               <Link
                 href={`/${mostRecentSubjectSlug ?? subjects?.[0]?.slug ?? ""}/quiz?weak=1`}
-                className="mt-4 flex items-center justify-between px-3 py-2 border border-line rounded-md text-[12px] text-ink-dim hover:text-ink hover:border-lineStrong transition-colors"
+                className="mt-4 block px-3 py-2 border border-line rounded-md text-[12px] text-ink-dim hover:text-ink hover:border-lineStrong transition-colors text-center"
               >
-                <span>Створити тест зі слабких тем</span>
-                <Kbd>F</Kbd>
+                Створити тест зі слабких тем →
               </Link>
             )}
           </section>

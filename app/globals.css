@@ -42,7 +42,49 @@
   input::placeholder, textarea::placeholder { color: #6b7079; }
 }
 
+@layer base {
+  /* Hide the native spin buttons on number inputs — they render white on dark UI. */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] { -moz-appearance: textfield; }
+}
+
 @layer components {
+  /* Range slider with a visible draggable thumb on the dark palette. */
+  input[type="range"].slider {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    height: 20px;
+    cursor: pointer;
+  }
+  input[type="range"].slider::-webkit-slider-runnable-track {
+    height: 4px; background: transparent;
+  }
+  input[type="range"].slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px; height: 16px; border-radius: 999px;
+    background: #e6e8ec;
+    border: 2px solid #5eb6ff;
+    box-shadow: 0 0 0 3px rgba(94,182,255,0.18);
+    margin-top: -6px;
+    cursor: grab;
+  }
+  input[type="range"].slider::-webkit-slider-thumb:active { cursor: grabbing; }
+  input[type="range"].slider::-moz-range-track { height: 4px; background: transparent; border: 0; }
+  input[type="range"].slider::-moz-range-thumb {
+    width: 16px; height: 16px; border-radius: 999px;
+    background: #e6e8ec;
+    border: 2px solid #5eb6ff;
+    box-shadow: 0 0 0 3px rgba(94,182,255,0.18);
+    cursor: grab;
+  }
+  input[type="range"].slider::-moz-range-thumb:active { cursor: grabbing; }
+
   /* Keyboard shortcut chip — used liberally in topbar / CTAs. */
   .kbd {
     display: inline-flex; align-items: center; justify-content: center;

@@ -1,9 +1,7 @@
 "use client";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/shell/AppShell";
-import { Kbd } from "@/components/shell/Kbd";
 import { loadQuestions, letter, type Question } from "@/lib/questions";
 import { loadTopics, topicDotClass, topicShortLabel, effectiveTopicSlugs, type SubjectTopics } from "@/lib/topics";
 
@@ -20,16 +18,22 @@ const PAGE_SIZE = 30;
 function CatalogInner() {
   const { subject } = useParams<{ subject: string }>();
   const params = useSearchParams();
-  const initialCat = params.get("cat");
+  // Multi-select chips. URL ?cat=foo&cat=bar (or comma-sep ?cat=foo,bar) seeds the initial set.
+  const initialCats = useMemo(() => {
+    const set = new Set<string>();
+    const all = params.getAll("cat");
+    for (const v of all) v.split(",").map((x) => x.trim()).filter(Boolean).forEach((x) => set.add(x));
+    return set;
+  }, [params]);
+
   const [qs, setQs] = useState<Question[] | null>(null);
   const [topics, setTopics] = useState<SubjectTopics | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [activeCat, setActiveCat] = useState<string | null>(initialCat);
+  const [active, setActive] = useState<Set<string>>(initialCats);
   const [shown, setShown] = useState(PAGE_SIZE);
-  const [revealAll, setRevealAll] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!subject) return;
@@ -38,18 +42,7 @@ function CatalogInner() {
       .catch((e) => setErr(String(e?.message ?? e)));
   }, [subject]);
 
-  useEffect(() => { setShown(PAGE_SIZE); }, [query, activeCat]);
-
-  // "/" focuses search like Linear/GitHub.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "/" && !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) {
-        e.preventDefault(); searchRef.current?.focus();
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  useEffect(() => { setShown(PAGE_SIZE); }, [query, active]);
 
   const counts = useMemo(() => {
     const m: Record<string, number> = {};
@@ -63,15 +56,15 @@ function CatalogInner() {
     if (!qs) return [];
     const needle = query.trim().toLowerCase();
     return qs.filter((q) => {
-      if (activeCat) {
+      if (active.size > 0) {
         const eff = effectiveTopicSlugs(q.categories);
-        if (!eff.includes(activeCat)) return false;
+        if (!eff.some((c) => active.has(c))) return false;
       }
       if (!needle) return true;
       if (q.text.toLowerCase().includes(needle)) return true;
       return q.options.some((o) => o.toLowerCase().includes(needle));
     });
-  }, [qs, query, activeCat]);
+  }, [qs, query, active]);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -86,72 +79,93 @@ function CatalogInner() {
   const visible = filtered.slice(0, shown);
   const hasMore = shown < filtered.length;
 
+  function toggleChip(slug: string) {
+    setActive((cur) => {
+      const next = new Set(cur);
+      if (next.has(slug)) next.delete(slug); else next.add(slug);
+      return next;
+    });
+  }
+  function clearChips() { setActive(new Set()); }
+  function toggleExpand(id: string) {
+    setExpanded((cur) => {
+      const next = new Set(cur);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
   return (
     <AppShell active="catalog" subject={subject} crumbs={[{ label: "Каталог" }]}>
       <div className="flex flex-col h-full">
-        {/* Filter bar */}
-        <div className="px-6 sm:px-7 py-3 border-b border-line flex items-center gap-2.5">
-          <div className="flex-1 max-w-2xl h-8 border border-line rounded-md flex items-center px-3 gap-2 bg-surface">
+        {/* Search bar */}
+        <div className="px-6 sm:px-7 py-3 border-b border-line">
+          <div className="max-w-2xl h-9 border border-line rounded-md flex items-center px-3 gap-2 bg-surface focus-within:border-cyan transition-colors">
             <SearchIcon />
             <input
-              ref={searchRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={`Пошук по ${qs?.length ?? "—"} питанням...`}
+              placeholder={`Пошук по ${qs?.length ?? "—"} питанням…`}
               className="bg-transparent flex-1 text-[13px] outline-none placeholder:text-ink-mute"
             />
-            <Kbd>/</Kbd>
+            {query && (
+              <button onClick={() => setQuery("")} className="text-ink-mute hover:text-ink text-[14px] leading-none" aria-label="Очистити">×</button>
+            )}
           </div>
-          <button className="px-2.5 py-1.5 border border-line rounded-md text-[12px] text-ink-dim hover:text-ink hover:border-lineStrong flex items-center gap-1.5">
-            <span>+</span> Фільтр
-          </button>
-          <button
-            onClick={() => setRevealAll((v) => !v)}
-            className={
-              "px-2.5 py-1.5 border rounded-md text-[12px] flex items-center gap-1.5 transition-colors " +
-              (revealAll
-                ? "bg-cyan text-canvas border-cyan"
-                : "border-line text-ink-dim hover:text-ink hover:border-lineStrong")
-            }
-          >
-            {revealAll ? "Сховати відповіді" : "Показати відповіді"}
-          </button>
         </div>
 
-        {/* Topic chips */}
+        {/* Topic chips — multi-select. Click to add/remove; "усі" clears the set. */}
         {topics && (
-          <div className="px-6 sm:px-7 py-2.5 border-b border-line flex items-center gap-1.5 flex-wrap">
-            <span className="eyebrow mr-1">Теми</span>
+          <div className="px-6 sm:px-7 py-3 border-b border-line flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] uppercase tracking-wider text-ink-mute font-semibold mr-1">Теми</span>
             <Chip
-              active={activeCat === null}
+              active={active.size === 0}
               label="усі"
               count={qs?.length ?? 0}
-              onClick={() => setActiveCat(null)}
+              onClick={clearChips}
             />
             {topics.topics.map((t) => (
               <Chip
                 key={t.slug}
                 label={topicShortLabel(topics, t.slug)}
                 count={counts[t.slug] ?? 0}
-                active={activeCat === t.slug}
+                active={active.has(t.slug)}
                 dot={topicDotClass(topics, t.slug)}
-                onClick={() => setActiveCat(activeCat === t.slug ? null : t.slug)}
+                onClick={() => toggleChip(t.slug)}
               />
             ))}
+            {active.size > 0 && (
+              <button onClick={clearChips} className="text-[11px] text-ink-mute hover:text-ink underline underline-offset-2 ml-1">
+                скинути
+              </button>
+            )}
           </div>
         )}
 
         {/* Counts row */}
-        <div className="px-6 sm:px-7 py-2 border-b border-line text-[11px] text-ink-mute font-mono flex justify-between">
-          <span>{filtered.length} питань · {Math.min(shown, filtered.length)} на сторінці</span>
+        <div className="px-6 sm:px-7 py-2 border-b border-line text-[11px] text-ink-mute flex justify-between">
+          <span>
+            {filtered.length} {filtered.length === 1 ? "питання" : "питань"}
+            {active.size > 0 && <> · фільтр: <span className="text-ink-dim">{active.size} {active.size === 1 ? "тема" : "теми"}</span></>}
+          </span>
           {err && <span className="text-bad">{err}</span>}
         </div>
 
-        {/* Table */}
+        {/* Rows */}
         <div className="flex-1 overflow-y-auto">
-          {!qs && <Skeleton />}
+          {!qs && (
+            <div className="divide-y divide-line">
+              {[0, 1, 2, 3].map((i) => <div key={i} className="h-20 animate-pulse bg-surface/30" />)}
+            </div>
+          )}
           {visible.map((q) => (
-            <CatalogRow key={q.id} q={q} topics={topics} reveal={revealAll} subject={subject} />
+            <CatalogRow
+              key={q.id}
+              q={q}
+              topics={topics}
+              open={expanded.has(q.id)}
+              onToggle={() => toggleExpand(q.id)}
+            />
           ))}
           {hasMore && (
             <div ref={sentinelRef} className="py-6 flex justify-center">
@@ -161,7 +175,7 @@ function CatalogInner() {
           {qs && filtered.length === 0 && (
             <div className="px-6 py-16 text-center text-ink-mute">
               <div className="text-[14px] mb-1">Нічого не знайдено</div>
-              <div className="text-[12px]">Спробуй інший пошук або фільтр.</div>
+              <div className="text-[12px]">Спробуй інший пошук або зніми частину фільтрів.</div>
             </div>
           )}
         </div>
@@ -171,57 +185,80 @@ function CatalogInner() {
 }
 
 function CatalogRow({
-  q, topics, reveal, subject,
-}: { q: Question; topics: SubjectTopics | null; reveal: boolean; subject: string }) {
+  q, topics, open, onToggle,
+}: { q: Question; topics: SubjectTopics | null; open: boolean; onToggle: () => void }) {
   const cats = effectiveTopicSlugs(q.categories);
   const noAnswer = q.correct_indices.length === 0;
-  const acc = noAnswer ? null : 55; // placeholder; will be wired to question_stats later
+  const multi = q.correct_indices.length > 1;
 
   return (
-    <div className="px-6 sm:px-7 py-3.5 border-b border-line grid grid-cols-[40px_1fr_60px_80px] gap-4 items-start hover:bg-surface/40 transition-colors">
-      <span className="font-mono text-[12px] text-ink-mute pt-px">#{q.number}</span>
-      <div className="min-w-0">
-        <div className="text-[13px] font-medium mb-1.5">{q.text}</div>
-        <div className="flex flex-wrap gap-1">
-          {q.options.map((o, j) => {
-            const isRight = reveal && q.correct_indices.includes(j);
-            return (
-              <span
-                key={j}
-                className={
-                  "text-[11px] px-2 py-0.5 rounded font-mono inline-flex items-center gap-1.5 " +
-                  (isRight
-                    ? "bg-good/10 border border-good/40 text-good"
-                    : "bg-surface border border-line text-ink-dim")
-                }
-              >
-                <span className={isRight ? "text-good" : "text-ink-mute"}>{letter(j)}</span>
-                <span className="truncate max-w-[24ch]">{o}</span>
-              </span>
-            );
-          })}
-        </div>
-        {topics && cats.length > 0 && (
-          <div className="flex items-center gap-3 mt-2 text-[11px] font-mono">
-            {cats.map((c) => (
-              <span key={c} className="inline-flex items-center gap-1.5 text-ink-mute">
-                <span className={`size-1 rounded-full ${topicDotClass(topics, c)}`} />
-                {topicShortLabel(topics, c)}
-              </span>
-            ))}
-            {noAnswer && <span className="text-warn">немає відповіді</span>}
-          </div>
-        )}
-      </div>
-      <span className={`font-mono text-[11px] text-right pt-1 ${acc !== null && acc < 50 ? "text-warn" : "text-ink-dim"}`}>
-        {acc !== null ? `${acc}%` : "—"}
-      </span>
-      <Link
-        href={`/${subject}/quiz?from=${q.id}`}
-        className="text-[11px] text-cyan text-right pt-1 hover:underline"
+    <div className="border-b border-line">
+      <button
+        onClick={onToggle}
+        className="w-full px-6 sm:px-7 py-3.5 grid grid-cols-[40px_1fr_auto] gap-4 items-start text-left hover:bg-surface/40 transition-colors"
+        aria-expanded={open}
       >
-        відкрити →
-      </Link>
+        <span className="text-[12px] text-ink-mute pt-px">#{q.number}</span>
+        <div className="min-w-0">
+          <div className="text-[13.5px] font-medium leading-snug">{q.text}</div>
+          {topics && cats.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[11px]">
+              {cats.map((c) => (
+                <span key={c} className="inline-flex items-center gap-1.5 text-ink-mute">
+                  <span className={`size-1 rounded-full ${topicDotClass(topics, c)}`} />
+                  {topicShortLabel(topics, c)}
+                </span>
+              ))}
+              {noAnswer && <span className="text-warn">немає відповіді</span>}
+              {multi && <span className="text-cyan">кілька правильних</span>}
+            </div>
+          )}
+        </div>
+        <span className={"text-ink-mute text-[14px] transition-transform " + (open ? "rotate-180" : "")}>▾</span>
+      </button>
+
+      {open && (
+        <div className="px-6 sm:px-7 pb-4 grid grid-cols-[40px_1fr] gap-4">
+          <div />
+          <div>
+            <ul className="space-y-1.5">
+              {q.options.map((o, j) => {
+                const correct = q.correct_indices.includes(j);
+                return (
+                  <li
+                    key={j}
+                    className={
+                      "flex items-start gap-2.5 rounded-md border px-3 py-2 text-[13px] " +
+                      (correct ? "border-good bg-good/[0.06]" : "border-line bg-surface")
+                    }
+                  >
+                    <span className={"w-4 text-[11px] " + (correct ? "text-good font-semibold" : "text-ink-mute")}>{letter(j)}</span>
+                    <span className="flex-1">{o}</span>
+                    {correct && <span className="text-good text-[11px] shrink-0">✓</span>}
+                  </li>
+                );
+              })}
+            </ul>
+            {q.explanations && q.explanations.some((e) => e?.trim()) && (
+              <div className="mt-3 space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-cyan font-semibold">Пояснення</div>
+                <ol className="space-y-1.5 mt-1">
+                  {q.options.map((_, j) => {
+                    const e = q.explanations?.[j]?.trim(); if (!e) return null;
+                    const correct = q.correct_indices.includes(j);
+                    return (
+                      <li key={j} className="flex gap-2.5 text-[12px] leading-relaxed">
+                        <span className={"w-4 shrink-0 " + (correct ? "text-good" : "text-ink-mute")}>{letter(j)}</span>
+                        <span className={correct ? "text-good" : "text-ink-dim"}>{e}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -233,26 +270,16 @@ function Chip({
     <button
       onClick={onClick}
       className={
-        "px-2.5 py-1 rounded-full text-[11px] inline-flex items-center gap-1.5 transition-colors " +
+        "px-2.5 py-1 rounded-full text-[11.5px] inline-flex items-center gap-1.5 transition-colors " +
         (active
-          ? "bg-cyan-soft text-cyan font-medium"
+          ? "bg-cyan-soft text-cyan font-medium border border-cyan/40"
           : "border border-line text-ink-dim hover:text-ink hover:border-lineStrong")
       }
     >
       {dot && <span className={`size-1 rounded-full ${dot}`} />}
       <span>{label}</span>
-      <span className="font-mono text-ink-mute">{count}</span>
+      <span className={active ? "text-cyan/80" : "text-ink-mute"}>{count}</span>
     </button>
-  );
-}
-
-function Skeleton() {
-  return (
-    <div className="divide-y divide-line">
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="h-20 animate-pulse bg-surface/30" />
-      ))}
-    </div>
   );
 }
 

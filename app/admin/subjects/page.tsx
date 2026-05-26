@@ -150,7 +150,7 @@ function Editor({
         <div>
           <div className="eyebrow">{row.id ? "Редагування" : "Новий предмет"}</div>
         </div>
-        <button onClick={onCancel} className="text-[11px] text-ink-mute hover:text-ink">esc</button>
+        <button onClick={onCancel} className="text-[11px] text-ink-mute hover:text-ink">закрити</button>
       </div>
       <Field label="Slug (URL)" hint="Тільки літери, цифри, дефіс. Не змінюй після створення!">
         <input

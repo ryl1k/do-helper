@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AppShell } from "@/components/shell/AppShell";
-import { Kbd } from "@/components/shell/Kbd";
 import { loadQuestions, type Question } from "@/lib/questions";
 import { loadTopics, topicDotClass, topicShortLabel, effectiveTopicSlugs, type SubjectTopics } from "@/lib/topics";
 import { loadSubjects, subjectInitials, type Subject } from "@/lib/subjects";
@@ -65,7 +64,7 @@ export default function SubjectPage() {
         <div className="px-6 sm:px-10 pt-6 pb-5 border-b border-line">
           <div className="flex items-center gap-3 mb-4">
             <div
-              className="size-9 rounded-lg font-mono font-bold text-canvas flex items-center justify-center"
+              className="size-9 rounded-lg font-bold text-canvas flex items-center justify-center"
               style={{ background: "linear-gradient(135deg,#5eb6ff,#a78bfa)" }}
             >
               {subjectRow ? subjectInitials(subjectRow.name_uk) : "??"}
@@ -74,7 +73,7 @@ export default function SubjectPage() {
               <h1 className="text-[22px] font-semibold tracking-tighter2 truncate">
                 {subjectRow?.name_uk ?? subject}
               </h1>
-              <div className="text-[12px] text-ink-mute font-mono mt-0.5">
+              <div className="text-[12px] text-ink-mute mt-0.5">
                 {subjectRow ? `${subjectRow.question_count} питань · ${subjectRow.topic_count} тем` : "…"}
                 {sStats.totalQ > 0 && (
                   <> · <span className="text-cyan">{Math.round(sStats.accuracy * 100)}% точність</span></>
@@ -84,11 +83,10 @@ export default function SubjectPage() {
             <div className="flex-1" />
             <Link
               href={`/${subject}/quiz`}
-              className="px-3 py-1.5 rounded-md bg-cyan text-canvas text-[12px] font-semibold inline-flex items-center gap-1.5 hover:bg-cyan/90 transition-colors"
+              className="px-3.5 py-2 rounded-md bg-cyan text-canvas text-[12px] font-semibold inline-flex items-center gap-1.5 hover:bg-cyan/90 transition-colors"
             >
               <span>▶</span>
               Швидкий тест
-              <Kbd inverse>T</Kbd>
             </Link>
           </div>
 
@@ -127,13 +125,13 @@ export default function SubjectPage() {
                     >
                       <span className={`size-1.5 rounded-full ${dot}`} />
                       <span className="text-[13px] truncate">{label}</span>
-                      <span className="font-mono text-[11px] text-ink-mute tabular-nums">
+                      <span className="text-[11px] text-ink-mute tabular-nums">
                         {t.done}/{t.total}
                       </span>
                       <div className="h-[3px] rounded-full bg-white/[0.06] overflow-hidden">
                         <div className={`h-full ${dot} opacity-70`} style={{ width: `${pct}%` }} />
                       </div>
-                      <span className={`font-mono text-[12px] tabular-nums ${accColor}`}>
+                      <span className={`text-[12px] tabular-nums ${accColor}`}>
                         {t.done === 0 ? "—" : `${Math.round(t.acc * 100)}%`}
                       </span>
                       <span className="text-[11px] text-ink-dim text-right group-hover:text-cyan">Почати →</span>
@@ -149,10 +147,10 @@ export default function SubjectPage() {
             <section>
               <div className="eyebrow mb-2.5">Швидкі дії</div>
               <div className="space-y-2">
-                <QuickAction href={`/${subject}/quiz`} label="Тест" sub="Випадкові питання з тем" k="T" />
-                <QuickAction href={`/${subject}/search`} label="Каталог" sub={`${subjectRow?.question_count ?? "—"} питань · фільтри`} k="C" />
-                <QuickAction href={`/${subject}/quiz?weak=1`} label="Слабкі місця" sub="3 теми < 50% точність" k="F" />
-                <QuickAction href={`/faq`} label="Q/A" sub="Питання та відповіді" k="?" />
+                <QuickAction href={`/${subject}/quiz`} label="Тест" sub="Випадкові питання з тем" />
+                <QuickAction href={`/${subject}/search`} label="Каталог" sub={`${subjectRow?.question_count ?? "—"} питань · фільтри`} />
+                <QuickAction href={`/${subject}/quiz?weak=1`} label="Слабкі місця" sub="Низька точність" />
+                <QuickAction href={`/faq`} label="Q/A" sub="Питання та відповіді" />
               </div>
             </section>
 
@@ -166,10 +164,10 @@ export default function SubjectPage() {
                   const acc = s.total ? Math.round((s.correct / s.total) * 100) : 0;
                   return (
                     <div key={i} className="py-2.5">
-                      <div className="font-mono text-[11px] text-ink-mute">{new Date(s.date).toLocaleString()}</div>
+                      <div className="text-[11px] text-ink-mute">{new Date(s.date).toLocaleString()}</div>
                       <div className="flex justify-between text-[12px] mt-0.5">
                         <span>{s.total} питань</span>
-                        <span className={`font-mono ${acc < 60 ? "text-warn" : "text-good"}`}>{acc}%</span>
+                        <span className={`${acc < 60 ? "text-warn" : "text-good"}`}>{acc}%</span>
                       </div>
                     </div>
                   );
@@ -199,7 +197,7 @@ function TabLink({ href, active, children }: { href: string; active?: boolean; c
   );
 }
 
-function QuickAction({ href, label, sub, k }: { href: string; label: string; sub: string; k: string }) {
+function QuickAction({ href, label, sub }: { href: string; label: string; sub: string }) {
   return (
     <Link
       href={href}
@@ -209,7 +207,7 @@ function QuickAction({ href, label, sub, k }: { href: string; label: string; sub
         <div className="text-[13px] font-medium">{label}</div>
         <div className="text-[11px] text-ink-mute mt-0.5 truncate">{sub}</div>
       </div>
-      <Kbd>{k}</Kbd>
+      <span className="text-ink-mute">→</span>
     </Link>
   );
 }

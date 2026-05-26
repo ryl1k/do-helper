@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import { Kbd } from "./Kbd";
 import { Logo } from "./Logo";
 import { useSession } from "@/lib/auth";
 
@@ -11,9 +10,9 @@ interface Crumb {
 
 export function TopBar({
   crumbs = [],
-  showSearch = true,
 }: {
   crumbs?: Crumb[];
+  /** @deprecated retained for callsite compatibility; the search button was removed. */
   showSearch?: boolean;
 }) {
   const { session } = useSession();
@@ -48,25 +47,24 @@ export function TopBar({
 
       <div className="flex-1" />
 
-      {showSearch && (
-        <button
-          type="button"
-          className="hidden sm:flex items-center gap-1 text-[12px] text-ink-dim hover:text-ink transition-colors"
-          aria-label="Пошук"
+      {session ? (
+        <Link
+          href="/profile"
+          className="flex items-center gap-2 text-[12px] text-ink-dim hover:text-ink"
         >
-          <span className="px-2 py-1 rounded-md bg-surface2">Пошук</span>
-          <Kbd>⌘</Kbd>
-          <Kbd>K</Kbd>
-        </button>
+          <span className="hidden sm:inline">{session.user?.email}</span>
+          <span className="size-[24px] rounded-full bg-cyan-soft text-cyan flex items-center justify-center text-[11px] font-semibold">
+            {initial}
+          </span>
+        </Link>
+      ) : (
+        <Link
+          href="/login"
+          className="px-3 py-1.5 rounded-md bg-cyan text-canvas text-[12px] font-semibold hover:bg-cyan/90"
+        >
+          Увійти
+        </Link>
       )}
-
-      <Link
-        href={session ? "/profile" : "/login"}
-        className="size-[22px] rounded border border-line flex items-center justify-center text-[11px] text-ink-dim hover:border-lineStrong hover:text-ink transition-colors"
-        aria-label="Профіль"
-      >
-        {initial}
-      </Link>
     </div>
   );
 }

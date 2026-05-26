@@ -180,7 +180,7 @@ function TopicEditor({
     <div className="space-y-4">
       <div className="flex items-baseline justify-between">
         <div className="eyebrow">{topic.id ? "Редагування" : "Нова тема"}</div>
-        <button onClick={onCancel} className="text-[11px] text-ink-mute hover:text-ink">esc</button>
+        <button onClick={onCancel} className="text-[11px] text-ink-mute hover:text-ink">закрити</button>
       </div>
       <FieldRow label="Slug">
         <input
