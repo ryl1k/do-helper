@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/shell/AppShell";
 import { loadQuestions, letter, type Question } from "@/lib/questions";
 import { loadTopics, topicDotClass, topicShortLabel, effectiveTopicSlugs, type SubjectTopics } from "@/lib/topics";
-import { recordQuiz } from "@/lib/stats";
+import { loadProfile, perQuestionStats, recordQuiz, type QuizResult } from "@/lib/stats";
 import { getOrCreateAnonId, useSession } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase-client";
 
@@ -25,6 +25,7 @@ export default function QuizPage() {
 
   const [all, setAll] = useState<Question[] | null>(null);
   const [topics, setTopics] = useState<SubjectTopics | null>(null);
+  const [history, setHistory] = useState<QuizResult[]>([]);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,6 +33,7 @@ export default function QuizPage() {
     Promise.all([loadQuestions(subject), loadTopics(subject)])
       .then(([q, t]) => { setAll(q); setTopics(t); })
       .catch((e) => setErr(String(e?.message ?? e)));
+    setHistory(loadProfile().quizzes);
   }, [subject]);
 
   const [phase, setPhase] = useState<Phase>("setup");
@@ -64,14 +66,26 @@ export default function QuizPage() {
     return m;
   }, [all]);
 
+  // Per-question stats from local history, scoped to this subject. Used by
+  // the "Тільки слабкі питання" toggle to keep only questions the user has
+  // tried and got <60% accuracy on.
+  const qStats = useMemo(() => perQuestionStats(history, subject), [history, subject]);
+
   const eligible = useMemo(() => {
     if (!all) return [];
-    return all.filter((q) => {
+    let base = all.filter((q) => {
       if (q.correct_indices.length === 0) return false;
       const eff = effectiveTopicSlugs(q.categories);
       return eff.some((c) => picked.has(c));
     });
-  }, [all, picked]);
+    if (weakOnlyOpt) {
+      base = base.filter((q) => {
+        const s = qStats.get(q.number);
+        return s && s.total >= 1 && s.acc < 0.6;
+      });
+    }
+    return base;
+  }, [all, picked, weakOnlyOpt, qStats]);
 
   const maxAvailable = Math.max(1, eligible.length);
   const requestedCount = Math.max(1, Math.min(count || 1, maxAvailable));
