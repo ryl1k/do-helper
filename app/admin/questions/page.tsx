@@ -112,34 +112,54 @@ export default function AdminQuestionsPage() {
         {err && <div className="text-bad text-sm mb-3">{err}</div>}
         {!rows && <div className="text-ink-mute text-sm">Завантаження…</div>}
         {rows && (
-          <div className="panel divide-y divide-line overflow-hidden">
-            {filtered.slice(0, 200).map((q) => {
-              const firstCat = q.categories[0] ?? "";
-              return (
-                <button
-                  key={q.id}
-                  onClick={() => setEditing(q)}
-                  className="grid grid-cols-[40px_1fr_140px] gap-3 px-4 py-3 items-center hover:bg-surface text-left transition-colors"
-                >
-                  <span className="font-mono text-[11px] text-ink-mute">#{q.number}</span>
-                  <span className="text-[13px] truncate">{q.text}</span>
-                  {topics && firstCat && (
-                    <span className="text-[11px] text-ink-dim inline-flex items-center gap-1.5">
-                      <span className={`size-1.5 rounded-full ${topicDotClass(topics, firstCat)}`} />
-                      <span className="truncate">{topicShortLabel(topics, firstCat)}</span>
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          <div className="panel overflow-hidden">
+            <table className="w-full text-left table-fixed">
+              <colgroup>
+                <col className="w-14" />
+                <col />
+                <col className="w-[180px]" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-line eyebrow">
+                  <th className="px-4 py-2 font-semibold">#</th>
+                  <th className="px-4 py-2 font-semibold">Питання</th>
+                  <th className="px-4 py-2 font-semibold">Тема</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {filtered.slice(0, 200).map((q) => {
+                  const firstCat = q.categories[0] ?? "";
+                  return (
+                    <tr
+                      key={q.id}
+                      onClick={() => setEditing(q)}
+                      className="cursor-pointer hover:bg-surface transition-colors"
+                    >
+                      <td className="px-4 py-3 text-[11px] text-ink-mute tabular-nums">#{q.number}</td>
+                      <td className="px-4 py-3 text-[13px] truncate">{q.text}</td>
+                      <td className="px-4 py-3 text-[11px] text-ink-dim truncate">
+                        {topics && firstCat && (
+                          <span className="inline-flex items-center gap-1.5 max-w-full">
+                            <span className={`size-1.5 rounded-full shrink-0 ${topicDotClass(topics, firstCat)}`} />
+                            <span className="truncate">{topicShortLabel(topics, firstCat)}</span>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
             {filtered.length > 200 && (
-              <div className="px-4 py-3 text-[11px] text-ink-mute">показано перші 200 з {filtered.length}</div>
+              <div className="px-4 py-3 text-[11px] text-ink-mute border-t border-line">
+                показано перші 200 з {filtered.length}
+              </div>
             )}
           </div>
         )}
       </div>
 
-      <aside className="border-t lg:border-t-0 lg:border-l border-line p-6 bg-surface">
+      <aside className="border-t lg:border-t-0 lg:border-l border-line p-6 bg-surface lg:sticky lg:top-0 lg:self-start lg:max-h-[calc(100vh-44px)] lg:overflow-y-auto">
         {editing ? (
           <QuestionEditor
             row={editing}
@@ -221,7 +241,7 @@ function QuestionEditor({
               <div key={i} className={"flex items-center gap-2 px-2 py-1.5 rounded-md border " + (correct ? "border-good bg-good/[0.06]" : "border-line bg-canvas")}>
                 <button
                   onClick={() => toggleCorrect(i)}
-                  className={"size-5 rounded shrink-0 flex items-center justify-center font-mono text-[10px] " + (correct ? "bg-good text-canvas" : "bg-surface2 text-ink-dim")}
+                  className={"size-5 rounded shrink-0 flex items-center justify-center text-[10px] " + (correct ? "bg-good text-canvas" : "bg-surface2 text-ink-dim")}
                 >
                   {String.fromCharCode(0x430 + i)}
                 </button>

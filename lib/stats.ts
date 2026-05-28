@@ -91,6 +91,26 @@ export function summarize(quizzes: QuizResult[], subjectFilter?: string) {
   return { totalQ, totalC, accuracy, perCat };
 }
 
+// Per-question accuracy for a subject. Returns Map<questionNumber, {total, correct, acc}>.
+// Used by "Тільки слабкі питання" filter to pick questions the user struggles with.
+export function perQuestionStats(
+  quizzes: QuizResult[],
+  subject: string,
+): Map<number, { total: number; correct: number; acc: number }> {
+  const m = new Map<number, { total: number; correct: number; acc: number }>();
+  for (const q of quizzes) {
+    if (q.subject !== subject) continue;
+    for (const o of q.outcomes) {
+      const s = m.get(o.number) ?? { total: 0, correct: 0, acc: 0 };
+      s.total += 1;
+      if (o.correct) s.correct += 1;
+      s.acc = s.correct / s.total;
+      m.set(o.number, s);
+    }
+  }
+  return m;
+}
+
 // Distinct subjects ever played, sorted by most recent activity.
 export function subjectsPlayed(quizzes: QuizResult[]): string[] {
   const seen = new Map<string, number>();

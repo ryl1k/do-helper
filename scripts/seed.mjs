@@ -17,8 +17,10 @@ import OpenAI from "openai";
 
 const args = process.argv.slice(2);
 function flag(name) { return args.includes(`--${name}`); }
+// lastIndexOf so a later `--subject web` overrides an earlier `--subject do`
+// baked into an npm script. Otherwise users silently target the wrong subject.
 function opt(name, def) {
-  const i = args.indexOf(`--${name}`);
+  const i = args.lastIndexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : def;
 }
 
@@ -151,14 +153,22 @@ async function loadParsed() {
 
 async function upsertQuestions(parsed, subjectId) {
   console.log(`Upserting ${parsed.length} questions for subject "${SUBJECT}"…`);
-  const rows = parsed.map((q) => ({
-    subject_id: subjectId,
-    number: q.number,
-    text: q.text,
-    options: q.options,
-    correct_indices: q.correct_indices,
-    language: q.language ?? "uk",
-  }));
+  // Categories and explanations are uploaded if present in the source JSON.
+  // This lets a hand-prepared file (with pre-grouped topics and per-option
+  // explanations) skip the Groq categorize/explain steps entirely.
+  const rows = parsed.map((q) => {
+    const row = {
+      subject_id: subjectId,
+      number: q.number,
+      text: q.text,
+      options: q.options,
+      correct_indices: q.correct_indices,
+      language: q.language ?? "uk",
+    };
+    if (Array.isArray(q.categories) && q.categories.length > 0) row.categories = q.categories;
+    if (Array.isArray(q.explanations) && q.explanations.length > 0) row.explanations = q.explanations;
+    return row;
+  });
   const CHUNK = 200;
   let done = 0;
   for (let i = 0; i < rows.length; i += CHUNK) {

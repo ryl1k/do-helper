@@ -3,7 +3,7 @@
 export function Logo({ size = 22 }: { size?: number }) {
   return (
     <span
-      className="inline-flex items-center justify-center rounded-md font-mono font-bold tracking-tighter2 text-canvas shrink-0"
+      className="inline-flex items-center justify-center rounded-md font-bold tracking-tighter2 text-canvas shrink-0"
       style={{
         width: size,
         height: size,

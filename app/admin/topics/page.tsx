@@ -124,31 +124,50 @@ export default function AdminTopicsPage() {
           </div>
         )}
         {topics && topics.length > 0 && (
-          <div className="panel divide-y divide-line overflow-hidden">
-            <div className="grid grid-cols-[40px_1fr_120px_60px_24px] gap-3 px-4 py-2 eyebrow border-b border-line">
-              <span>#</span><span>Назва</span><span>Slug</span><span>Колір</span><span></span>
-            </div>
-            {topics.map((t, i) => (
-              <button
-                key={t.id}
-                onClick={() => setEditing(t)}
-                className="grid grid-cols-[40px_1fr_120px_60px_24px] gap-3 px-4 py-3 items-center hover:bg-surface transition-colors text-left"
-              >
-                <span className="font-mono text-[11px] text-ink-mute">{i + 1}</span>
-                <span className="text-[13px] flex items-center gap-2">
-                  <span className={`size-2 rounded-full ${COLOR_BG[t.color_token] ?? "bg-slate-500"}`} />
-                  <span className="truncate">{t.name}</span>
-                </span>
-                <span className="font-mono text-[11px] text-ink-mute">{t.slug}</span>
-                <span className="font-mono text-[11px] text-ink-mute">{t.color_token}</span>
-                <span className="text-ink-mute">›</span>
-              </button>
-            ))}
+          <div className="panel overflow-hidden">
+            <table className="w-full text-left table-fixed">
+              <colgroup>
+                <col className="w-12" />
+                <col />
+                <col className="w-[140px]" />
+                <col className="w-[100px]" />
+                <col className="w-8" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-line eyebrow">
+                  <th className="px-4 py-2 font-semibold">#</th>
+                  <th className="px-4 py-2 font-semibold">Назва</th>
+                  <th className="px-4 py-2 font-semibold">Slug</th>
+                  <th className="px-4 py-2 font-semibold">Колір</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {topics.map((t, i) => (
+                  <tr
+                    key={t.id}
+                    onClick={() => setEditing(t)}
+                    className="cursor-pointer hover:bg-surface transition-colors"
+                  >
+                    <td className="px-4 py-3 text-[11px] text-ink-mute tabular-nums">{i + 1}</td>
+                    <td className="px-4 py-3 text-[13px] truncate">
+                      <span className="inline-flex items-center gap-2 max-w-full">
+                        <span className={`size-2 rounded-full shrink-0 ${COLOR_BG[t.color_token] ?? "bg-slate-500"}`} />
+                        <span className="truncate">{t.name}</span>
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-[11px] text-ink-mute truncate">{t.slug}</td>
+                    <td className="px-4 py-3 text-[11px] text-ink-mute truncate">{t.color_token}</td>
+                    <td className="px-4 py-3 text-ink-mute text-right">›</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
 
-      <aside className="border-t lg:border-t-0 lg:border-l border-line p-6 bg-surface">
+      <aside className="border-t lg:border-t-0 lg:border-l border-line p-6 bg-surface lg:sticky lg:top-0 lg:self-start lg:max-h-[calc(100vh-44px)] lg:overflow-y-auto">
         {editing ? (
           <TopicEditor
             topic={editing}

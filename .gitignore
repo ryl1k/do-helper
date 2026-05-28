@@ -11,3 +11,4 @@ tsconfig.tsbuildinfo
 .claude/
 credentials.json
 oistudy.zip
+examples/

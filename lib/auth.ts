@@ -7,6 +7,7 @@ export interface Profile {
   id: string;
   display_name: string | null;
   locale: string;
+  is_admin: boolean;
 }
 
 const ANON_KEY = "anonVoterId";
@@ -63,7 +64,7 @@ export function useProfile() {
     let mounted = true;
     supabase
       .from("profiles")
-      .select("id, display_name, locale")
+      .select("id, display_name, locale, is_admin")
       .eq("id", session.user.id)
       .maybeSingle()
       .then(({ data }) => {

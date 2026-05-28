@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/shell/AppShell";
 import { loadQuestions, letter, type Question } from "@/lib/questions";
 import { loadTopics, topicDotClass, topicShortLabel, effectiveTopicSlugs, type SubjectTopics } from "@/lib/topics";
-import { recordQuiz } from "@/lib/stats";
+import { loadProfile, perQuestionStats, recordQuiz, type QuizResult } from "@/lib/stats";
 import { getOrCreateAnonId, useSession } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase-client";
 
@@ -25,6 +25,7 @@ export default function QuizPage() {
 
   const [all, setAll] = useState<Question[] | null>(null);
   const [topics, setTopics] = useState<SubjectTopics | null>(null);
+  const [history, setHistory] = useState<QuizResult[]>([]);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,11 +33,16 @@ export default function QuizPage() {
     Promise.all([loadQuestions(subject), loadTopics(subject)])
       .then(([q, t]) => { setAll(q); setTopics(t); })
       .catch((e) => setErr(String(e?.message ?? e)));
+    setHistory(loadProfile().quizzes);
   }, [subject]);
 
   const [phase, setPhase] = useState<Phase>("setup");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [count, setCount] = useState(25);
+  // Setup toggles — lifted from SetupView so they reach the play/done phases.
+  const [showExpl, setShowExpl] = useState(true);
+  const [shuffleOpts, setShuffleOpts] = useState(true);
+  const [weakOnlyOpt, setWeakOnlyOpt] = useState(weakOnly);
   const [pool, setPool] = useState<Question[]>([]);
   const [idx, setIdx] = useState(0);
   const [chosen, setChosen] = useState<Set<number>>(new Set());
@@ -60,21 +66,37 @@ export default function QuizPage() {
     return m;
   }, [all]);
 
+  // Per-question stats from local history, scoped to this subject. Used by
+  // the "Тільки слабкі питання" toggle to keep only questions the user has
+  // tried and got <60% accuracy on.
+  const qStats = useMemo(() => perQuestionStats(history, subject), [history, subject]);
+
   const eligible = useMemo(() => {
     if (!all) return [];
-    return all.filter((q) => {
+    let base = all.filter((q) => {
       if (q.correct_indices.length === 0) return false;
       const eff = effectiveTopicSlugs(q.categories);
       return eff.some((c) => picked.has(c));
     });
-  }, [all, picked]);
+    if (weakOnlyOpt) {
+      base = base.filter((q) => {
+        const s = qStats.get(q.number);
+        return s && s.total >= 1 && s.acc < 0.6;
+      });
+    }
+    return base;
+  }, [all, picked, weakOnlyOpt, qStats]);
 
   const maxAvailable = Math.max(1, eligible.length);
   const requestedCount = Math.max(1, Math.min(count || 1, maxAvailable));
 
   function start() {
     const shuffled = [...eligible].sort(() => Math.random() - 0.5);
-    setPool(shuffled.slice(0, Math.min(requestedCount, shuffled.length)));
+    const sliced = shuffled.slice(0, Math.min(requestedCount, shuffled.length));
+    // When "Перемішати варіанти" is on, shuffle each question's options independently,
+    // remapping correct_indices and per-option explanations to follow the new positions.
+    const finalPool = shuffleOpts ? sliced.map(shuffleQuestionOptions) : sliced;
+    setPool(finalPool);
     setIdx(0); setChosen(new Set()); setRevealed(false); setAttempts([]);
     setStartedAt(Date.now()); setFinishedAt(null);
     setPhase("playing");
@@ -145,7 +167,12 @@ export default function QuizPage() {
             eligible={eligible.length}
             maxAvailable={maxAvailable}
             onStart={start}
-            weakOnly={weakOnly}
+            showExpl={showExpl}
+            setShowExpl={setShowExpl}
+            shuffleOpts={shuffleOpts}
+            setShuffleOpts={setShuffleOpts}
+            weakOnly={weakOnlyOpt}
+            setWeakOnly={setWeakOnlyOpt}
           />
         )}
       </AppShell>
@@ -170,6 +197,7 @@ export default function QuizPage() {
         revealed={revealed}
         attempts={attempts}
         startedAt={startedAt ?? Date.now()}
+        showExpl={showExpl}
         onToggle={toggleChoice}
         onSubmit={submit}
         onNext={next}
@@ -200,7 +228,8 @@ export default function QuizPage() {
 // ───────────────────────────── SETUP ─────────────────────────────
 
 function SetupView({
-  topics, picked, setPicked, count, setCount, perTopicCount, eligible, maxAvailable, onStart, weakOnly,
+  topics, picked, setPicked, count, setCount, perTopicCount, eligible, maxAvailable, onStart,
+  showExpl, setShowExpl, shuffleOpts, setShuffleOpts, weakOnly, setWeakOnly,
 }: {
   topics: SubjectTopics;
   picked: Set<string>;
@@ -211,13 +240,13 @@ function SetupView({
   eligible: number;
   maxAvailable: number;
   onStart: () => void;
+  showExpl: boolean;
+  setShowExpl: (v: boolean) => void;
+  shuffleOpts: boolean;
+  setShuffleOpts: (v: boolean) => void;
   weakOnly: boolean;
+  setWeakOnly: (v: boolean) => void;
 }) {
-  const [showExpl, setShowExpl] = useState(true);
-  const [shuffleOpts, setShuffleOpts] = useState(true);
-  const [timer, setTimer] = useState(false);
-  const [weak, setWeak] = useState(weakOnly);
-
   function selAll() { setPicked(new Set(topics.topics.map((t) => t.slug))); }
   function selNone() { setPicked(new Set()); }
 
@@ -332,7 +361,7 @@ function SetupView({
           <div className="space-y-2">
             <Toggle label="Показувати пояснення відразу" on={showExpl} onChange={setShowExpl} />
             <Toggle label="Перемішати варіанти" on={shuffleOpts} onChange={setShuffleOpts} />
-            <Toggle label="Тільки слабкі питання (точність < 60%)" on={weak} onChange={setWeak} />
+            <Toggle label="Тільки слабкі питання (точність < 60%)" on={weakOnly} onChange={setWeakOnly} />
           </div>
         </section>
       </div>
@@ -402,7 +431,8 @@ function Toggle({ label, on, onChange }: { label: string; on: boolean; onChange:
 // ───────────────────────────── PLAYING ─────────────────────────────
 
 function PlayingView({
-  subject, topics, pool, idx, cur, truth, multi, chosen, revealed, attempts, startedAt, onToggle, onSubmit, onNext, onPrevious,
+  subject, topics, pool, idx, cur, truth, multi, chosen, revealed, attempts, startedAt, showExpl,
+  onToggle, onSubmit, onNext, onPrevious,
 }: {
   subject: string;
   topics: SubjectTopics;
@@ -415,6 +445,7 @@ function PlayingView({
   revealed: boolean;
   attempts: Attempt[];
   startedAt: number;
+  showExpl: boolean;
   onToggle: (i: number) => void;
   onSubmit: () => void;
   onNext: () => void;
@@ -446,7 +477,7 @@ function PlayingView({
           <div className="h-full bg-cyan transition-[width] duration-300" style={{ width: `${(idx / pool.length) * 100}%` }} />
         </div>
         <div className="flex-1" />
-        <div className="font-mono text-[12px] text-ink-dim tabular-nums" title="Тривалість сесії">{formatMMSS(elapsedSec)}</div>
+        <div className="text-[12px] text-ink-dim tabular-nums" title="Тривалість сесії">{formatMMSS(elapsedSec)}</div>
         <Link href={`/${subject}`} className="px-3 py-1.5 border border-line rounded-md text-[11px] text-ink-dim hover:text-ink hover:border-lineStrong">
           Завершити
         </Link>
@@ -463,8 +494,9 @@ function PlayingView({
         })}
       </div>
 
-      {/* Body: question (centered) + optional explanation panel on desktop */}
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-[1fr_360px] min-h-0">
+      {/* Body: question (centered) + optional explanation panel on desktop. Grid
+          drops to one column when the explanation panel is suppressed. */}
+      <div className={"flex-1 grid grid-cols-1 min-h-0 " + (showExpl ? "md:grid-cols-[1fr_360px]" : "")}>
         {/* Question — centered within the column */}
         <div className="overflow-y-auto flex flex-col items-center px-6 sm:px-12 py-8">
           <div className="w-full max-w-2xl flex-1 flex flex-col">
@@ -489,7 +521,9 @@ function PlayingView({
                 const numCls = !showState
                   ? isChosen ? "bg-cyan text-canvas" : "bg-surface2 text-ink-dim"
                   : isCorrect ? "bg-good text-canvas" : "bg-bad text-canvas";
-                const expl = revealed ? cur.explanations?.[i]?.trim() : "";
+                // Per-option explanation appears inline only when the user opted in
+                // ("Показувати пояснення відразу"). The side panel honors the same flag.
+                const expl = revealed && showExpl ? cur.explanations?.[i]?.trim() : "";
                 return (
                   <button
                     key={i}
@@ -549,32 +583,36 @@ function PlayingView({
           </div>
         </div>
 
-        {/* Right: explanation panel (desktop only). Shows the chosen + correct option explanation. */}
-        <aside className="border-t md:border-t-0 md:border-l border-line bg-surface p-7 overflow-y-auto hidden md:flex flex-col">
-          {!revealed && (
-            <div className="text-[12px] text-ink-mute italic">Пояснення з'явиться після відповіді.</div>
-          )}
-          {revealed && (
-            <>
-              <div className="eyebrow text-cyan mb-2.5">Пояснення</div>
-              <div className="space-y-3">
-                {cur.options.map((_, i) => {
-                  const e = cur.explanations?.[i]?.trim(); if (!e) return null;
-                  const correct = truth.has(i);
-                  return (
-                    <div key={i} className="text-[13px] leading-relaxed">
-                      <div className={"text-[11px] uppercase mb-0.5 " + (correct ? "text-good" : "text-ink-mute")}>{letter(i)} · {correct ? "правильна" : "неправильна"}</div>
-                      <div className={correct ? "text-good" : "text-ink-dim"}>{e}</div>
-                    </div>
-                  );
-                })}
-                {!cur.explanations?.some((e) => e?.trim()) && (
-                  <div className="text-[12px] text-ink-mute italic">Для цього питання поки немає пояснення.</div>
-                )}
-              </div>
-            </>
-          )}
-        </aside>
+        {/* Right: explanation panel (desktop only). Hidden entirely when the
+            "Показувати пояснення відразу" option is off — explanations come back
+            in the results screen at the end. */}
+        {showExpl && (
+          <aside className="border-t md:border-t-0 md:border-l border-line bg-surface p-7 overflow-y-auto hidden md:flex flex-col">
+            {!revealed && (
+              <div className="text-[12px] text-ink-mute italic">Пояснення з'явиться після відповіді.</div>
+            )}
+            {revealed && (
+              <>
+                <div className="eyebrow text-cyan mb-2.5">Пояснення</div>
+                <div className="space-y-3">
+                  {cur.options.map((_, i) => {
+                    const e = cur.explanations?.[i]?.trim(); if (!e) return null;
+                    const correct = truth.has(i);
+                    return (
+                      <div key={i} className="text-[13px] leading-relaxed">
+                        <div className={"text-[11px] uppercase mb-0.5 " + (correct ? "text-good" : "text-ink-mute")}>{letter(i)} · {correct ? "правильна" : "неправильна"}</div>
+                        <div className={correct ? "text-good" : "text-ink-dim"}>{e}</div>
+                      </div>
+                    );
+                  })}
+                  {!cur.explanations?.some((e) => e?.trim()) && (
+                    <div className="text-[12px] text-ink-mute italic">Для цього питання поки немає пояснення.</div>
+                  )}
+                </div>
+              </>
+            )}
+          </aside>
+        )}
       </div>
     </div>
   );
@@ -778,6 +816,27 @@ function DoneView({
       </div>
     </div>
   );
+}
+
+// Fisher-Yates shuffle of a question's options. correct_indices and explanations
+// are remapped to follow the new positions so the question stays semantically valid.
+function shuffleQuestionOptions(q: Question): Question {
+  const n = q.options.length;
+  const order = Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  const newOptions = order.map((oldI) => q.options[oldI]);
+  // For each ORIGINAL correct index, find where it landed in the new order.
+  const newCorrect = q.correct_indices
+    .map((c) => order.indexOf(c))
+    .filter((x) => x >= 0)
+    .sort((a, b) => a - b);
+  const newExplanations = q.explanations
+    ? order.map((oldI) => q.explanations![oldI] ?? "")
+    : undefined;
+  return { ...q, options: newOptions, correct_indices: newCorrect, explanations: newExplanations };
 }
 
 function formatMMSS(sec: number): string {

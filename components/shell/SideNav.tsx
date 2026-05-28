@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSubjects, subjectInitials } from "@/lib/subjects";
+import { useProfile } from "@/lib/auth";
 
 export type NavSection = "home" | "subjects" | "test" | "catalog" | "qa" | null;
 
@@ -19,10 +20,11 @@ function readLastSubject(): string | null {
 
 export function SideNav({ active = null, currentSubjectSlug = null }: Props) {
   const subjects = useSubjects() ?? [];
+  const { profile } = useProfile();
+  const isAdmin = !!profile?.is_admin;
 
   // Fallback subject for the workspace links: prefer current, then last-visited
-  // (if still valid), then the first subject in the list. Only "no fallback"
-  // happens when there are zero subjects, in which case Тест/Каталог are disabled.
+  // (if still valid), then the first subject in the list.
   const [lastSlug, setLastSlug] = useState<string | null>(null);
   useEffect(() => { setLastSlug(readLastSubject()); }, []);
 
@@ -39,8 +41,17 @@ export function SideNav({ active = null, currentSubjectSlug = null }: Props) {
     { id: "qa",      name: "Q/A",     href: "/faq" },
   ];
 
+  const adminItems = [
+    { name: "Питання",       href: "/admin/questions" },
+    { name: "Теми",          href: "/admin/topics" },
+    { name: "Предмети",      href: "/admin/subjects" },
+    { name: "AI Import",     href: "/admin/import" },
+    { name: "Студенти",      href: "/admin/users" },
+    { name: "Аналітика",     href: "/admin/analytics" },
+  ];
+
   return (
-    <aside className="w-[200px] shrink-0 border-r border-line py-4 px-2 hidden md:block">
+    <aside className="w-[200px] shrink-0 border-r border-line py-4 px-2 hidden md:block overflow-y-auto">
       <SectionLabel>Робоча область</SectionLabel>
       <ul className="mt-1.5 mb-5">
         {items.map((it) => {
@@ -78,7 +89,7 @@ export function SideNav({ active = null, currentSubjectSlug = null }: Props) {
       {subjects.length > 0 && (
         <>
           <SectionLabel>Предмети</SectionLabel>
-          <ul className="mt-1.5">
+          <ul className="mt-1.5 mb-5">
             {subjects.map((s) => {
               const on = s.slug === currentSubjectSlug;
               return (
@@ -100,6 +111,25 @@ export function SideNav({ active = null, currentSubjectSlug = null }: Props) {
                 </li>
               );
             })}
+          </ul>
+        </>
+      )}
+
+      {/* Admin section — visible only when the signed-in user's profile.is_admin is true. */}
+      {isAdmin && (
+        <>
+          <SectionLabel>Адмін</SectionLabel>
+          <ul className="mt-1.5">
+            {adminItems.map((it) => (
+              <li key={it.name}>
+                <Link
+                  href={it.href}
+                  className="block px-3 py-2 rounded-md mb-px text-[13px] text-ink-dim hover:text-ink hover:bg-surface transition-colors"
+                >
+                  {it.name}
+                </Link>
+              </li>
+            ))}
           </ul>
         </>
       )}
