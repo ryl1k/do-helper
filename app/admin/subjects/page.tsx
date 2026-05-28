@@ -89,28 +89,47 @@ export default function AdminSubjectsPage() {
           </div>
         )}
         {rows && rows.length > 0 && (
-          <div className="panel divide-y divide-line overflow-hidden">
-            <div className="grid grid-cols-[40px_1fr_120px_90px_24px] gap-3 px-4 py-2 eyebrow border-b border-line">
-              <span>#</span><span>Назва</span><span>Slug</span><span>Питань</span><span></span>
-            </div>
-            {rows.map((r) => {
-              const a = getAccent(r.accent_color);
-              return (
-                <button
-                  key={r.id}
-                  onClick={() => setEditing(r)}
-                  className="grid grid-cols-[40px_1fr_120px_90px_24px] gap-3 px-4 py-3 items-center hover:bg-surface transition-colors text-left"
-                >
-                  <span className={`size-6 rounded ${a.cta} ${a.ctaText} flex items-center justify-center text-[10px] font-semibold`}>
-                    {r.name_uk.slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="text-[13px] font-medium truncate">{r.name_uk}</span>
-                  <span className="text-[11px] text-ink-mute">{r.slug}</span>
-                  <span className="text-[11px] text-ink-mute">—</span>
-                  <span className="text-ink-mute">›</span>
-                </button>
-              );
-            })}
+          <div className="panel overflow-hidden">
+            <table className="w-full text-left table-fixed">
+              <colgroup>
+                <col className="w-12" />
+                <col />
+                <col className="w-[160px]" />
+                <col className="w-[90px]" />
+                <col className="w-8" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-line eyebrow">
+                  <th className="px-4 py-2 font-semibold"></th>
+                  <th className="px-4 py-2 font-semibold">Назва</th>
+                  <th className="px-4 py-2 font-semibold">Slug</th>
+                  <th className="px-4 py-2 font-semibold">Питань</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {rows.map((r) => {
+                  const a = getAccent(r.accent_color);
+                  return (
+                    <tr
+                      key={r.id}
+                      onClick={() => setEditing(r)}
+                      className="cursor-pointer hover:bg-surface transition-colors"
+                    >
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex size-6 rounded ${a.cta} ${a.ctaText} items-center justify-center text-[10px] font-semibold`}>
+                          {r.name_uk.slice(0, 2).toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-[13px] font-medium truncate">{r.name_uk}</td>
+                      <td className="px-4 py-3 text-[11px] text-ink-mute truncate">{r.slug}</td>
+                      <td className="px-4 py-3 text-[11px] text-ink-mute">—</td>
+                      <td className="px-4 py-3 text-ink-mute text-right">›</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

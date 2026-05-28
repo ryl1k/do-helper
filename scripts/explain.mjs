@@ -15,7 +15,8 @@ import OpenAI from "openai";
 const args = process.argv.slice(2);
 function flag(name) { return args.includes(`--${name}`); }
 function opt(name, def) {
-  const i = args.indexOf(`--${name}`);
+  // lastIndexOf so user-supplied flag wins over npm script default.
+  const i = args.lastIndexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : def;
 }
 
